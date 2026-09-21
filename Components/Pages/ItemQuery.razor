@@ -1,0 +1,514 @@
+@page "/items/query"
+@using dotCheck.Application.DTOs
+@using dotCheck.Components.Shared
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject ItemService ItemService
+@inject IReasonRepository ReasonRepository
+@inject PaymentService PaymentService
+@inject ReceiptService ReceiptService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+
+<PageTitle>查詢中心</PageTitle>
+
+<div class="container page-content">
+    <div class="page-heading">
+        <div>
+            <h1>查詢中心</h1>
+            <p>查詢已認結 / 已結清項目、繳費單、收據與未認結理由。</p>
+        </div>
+    </div>
+
+    <div class="query-tabs">
+        <button class="tab @(_activeTab == 0 ? "active" : "")" @onclick="ShowItemTab">項目查詢</button>
+        <button class="tab @(_activeTab == 1 ? "active" : "")" @onclick="ShowPaymentTabAsync">繳費單</button>
+        <button class="tab @(_activeTab == 2 ? "active" : "")" @onclick="ShowReceiptTabAsync">收據</button>
+        <button class="tab @(_activeTab == 3 ? "active" : "")" @onclick="ShowReasonTabAsync">未認結理由</button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <div class="notice success">@_message</div>
+    }
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="notice error">@_error</div>
+    }
+
+    @if (_activeTab == 0)
+    {
+        <section>
+            <div class="filter-card">
+                <div>
+                    <label>狀態</label>
+                    <select class="input" @bind="_status">
+                        <option value="Confirmed">已認結</option>
+                        <option value="Settled">已結清</option>
+                    </select>
+                </div>
+                <button class="button primary" @onclick="SearchAsync">查詢</button>
+            </div>
+
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <span>項目數量</span>
+                    <strong>@_summaryCount</strong>
+                </div>
+                <div class="summary-card">
+                    <span>總金額</span>
+                    <strong>@_summaryAmount.ToString("C0")</strong>
+                </div>
+            </div>
+
+            <div class="table-card">
+                <div class="data-table-head">
+                    <div>項目</div>
+                    <div>金額</div>
+                    <div>申請人</div>
+                    <div>狀態</div>
+                    <div>發票</div>
+                </div>
+                <Virtualize @key="_queryVersion" ItemsProvider="LoadItemsAsync" Context="item" OverscanCount="5"
+                            ItemSize="58">
+                    <div class="data-row">
+                        <div data-label="項目">@item.ItemName</div>
+                        <div data-label="金額" class="money">@item.Amount.ToString("C0")</div>
+                        <div data-label="申請人">@item.OwnerUserName</div>
+                        <div data-label="狀態"><span
+                            class="status @item.Status.ToString().ToLowerInvariant()">@GetStatusText(item.Status)</span>
+                        </div>
+                        <div data-label="發票">
+                            @if (item.InvoiceFile is not null)
+                            {
+                                <a target="_blank" href="/invoice/@item.Id">查看</a>
+                            }
+                        </div>
+                    </div>
+                </Virtualize>
+            </div>
+        </section>
+    }
+    //繳費單
+    else if (_activeTab == 1)
+    {
+        <section>
+            @if (_paymentLoading)
+            {
+                <Loading />
+            }
+            else if (_paymentBills.Count == 0)
+            {
+                <div class="notice">目前沒有你的應繳繳費單。</div>
+            }
+            else
+            {
+                <div class="table-card">
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>涵蓋日期</th>
+                                    <th>應繳金額</th>
+                                    <th>項目數</th>
+                                    <th>需繳人數</th>
+                                    <th>已繳人數</th>
+                                    <th>我的狀態</th>
+                                    <th>明細</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var bill in _paymentBills)
+                                {
+                                    <tr>
+                                        <td data-label="涵蓋日期">@bill.StartDate.ToLocalTime().ToString("yyyy-MM-dd") ~
+                                            @bill.EndDate.ToLocalTime().ToString("yyyy-MM-dd")</td>
+                                            <td data-label="應繳金額" class="money">@bill.PayableAmount.ToString("C0")</td>
+                                            <td data-label="項目數">@bill.ItemCount</td>
+                                            <td data-label="需繳人數">@bill.PayerCount</td>
+                                            <td data-label="已繳人數">@bill.PaidUserCount</td>
+                                            <td data-label="我的狀態">
+                                                @if (bill.PaidReceiptExists)
+                                                {
+                                                    <span class="status settled">已繳納</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="status pending">未繳納</span>
+                                                }
+                                            </td>
+                                            <td data-label="明細">
+                                                <button class="button secondary"
+                                                        @onclick="() => ShowPaymentBillDetail(bill)">查看明細</button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            </section>
+            <PaymentBillDetailDialog @bind-IsOpen="@_showPaymentBillDetail" PaymentBill="@_selectedPaymentBill" />
+        }
+    else if (_activeTab == 2)
+        {
+            <section>
+                <div class="form-actions">
+                    <InputFile OnChange="HandleReceiptImport" accept="text/plain,.txt,application/json,.json" />
+                    <button class="button primary" @onclick="DownloadSelectedReceipts"
+                            disabled="@(_selectedReceiptIds.Count == 0)">下載選取收據</button>
+                </div>
+                <div class="muted" style="margin-bottom: 1rem;">匯入時會驗證 RSA-PSS-SHA256 數位簽章、使用者、繳費單金額及重複性。</div>
+
+                @if (_receiptLoading)
+                {
+                    <Loading />
+                }
+                else if (_receipts.Count == 0)
+                {
+                    <div class="notice">目前沒有已提領的收據。</div>
+                }
+                else
+                {
+                    <div class="table-card">
+                        <div class="table-scroll">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th class="check-col">選取</th>
+                                        <th>繳費單</th>
+                                        <th>日期</th>
+                                        <th>金額</th>
+                                        <th>開立時間</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var receipt in _receipts)
+                                    {
+                                        <tr>
+                                            <td class="check-col">
+                                                <input type="checkbox"
+                                                       checked="@_selectedReceiptIds.Contains(ObjectId.Parse(receipt.Id))"
+                                                       @onchange="e => ToggleReceipt(receipt.Id, e)" />
+                                            </td>
+                                            <td data-label="繳費單">@receipt.PaymentBillId</td>
+                                            <td data-label="日期">@receipt.StartDate.ToLocalTime().ToString("yyyy-MM-dd") ~
+                                                @receipt.EndDate.ToLocalTime().ToString("yyyy-MM-dd")</td>
+                                                <td data-label="金額" class="money">@receipt.Amount.ToString("C0")</td>
+                                                <td data-label="開立時間">@receipt.IssuedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    }
+                </section>
+            }
+    else
+            {
+                <section>
+                    @if (_reasonLoading)
+                    {
+                        <Loading />
+                    }
+                    else if (_reasonDtos.Count == 0)
+                    {
+                        <div class="notice">目前沒有未認結理由紀錄。</div>
+                    }
+                    else
+                    {
+                        <div class="table-card">
+                            <div class="table-scroll">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>項目</th>
+                                            <th>金額</th>
+
+                                            <th>更新時間</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var dto in _reasonDtos)
+                                        {
+                                            var item = _ownerItems.FirstOrDefault(x => x.Id.ToString() == dto.ItemId);
+                                            <tr>
+                                                <td data-label="項目">@dto.ItemName</td>
+                                                <td data-label="金額" class="money">@dto.Amount.ToString("C0")</td>
+                                                <td data-label="理由">@dto.Reason</td>
+                                                <td data-label="更新時間">@dto.UpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                                <td data-label="操作">
+                                                    @if (item is not null && item.Status != ItemStatus.Settled)
+                                                    {
+                                                        <button class="button small" @onclick="() => EditItemAsync(item)">修改項目</button>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    }
+                </section>
+            }
+
+            @if (_editItem is not null)
+            {
+                <div class="modal-backdrop">
+                    <div class="modal-card">
+                        <div class="modal-header">
+                            <h2>修改項目</h2>
+                            <button class="icon-button" @onclick="CloseEdit">×</button>
+                        </div>
+                        <div class="modal-body form-stack">
+                            <label>項目名稱</label>
+                            <input class="input" @bind="_editModel.ItemName" maxlength="200" />
+                            <label>項目金額</label>
+                            <input class="input" type="number" step="0.01" min="0.01" @bind="_editModel.Amount" />
+                            <label>重新上傳發票（可留空）</label>
+                            <InputFile OnChange="e => _editFile = e.File" accept="image/jpeg,image/png,image/webp"
+                                       capture="environment" />
+                            <p class="muted">修改後項目會重新進入認結流程，既有未認結理由會清除。</p>
+                            @if (!string.IsNullOrWhiteSpace(_editError))
+                            {
+                                <div class="notice error">@_editError</div>
+                            }
+                        </div>
+                        <div class="modal-footer">
+                            <button class="button" @onclick="CloseEdit">取消</button>
+                            <button class="button primary" @onclick="SaveEditAsync" disabled="@_editing">@(_editing ? "儲存中…" :
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         "儲存")</button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+@code {
+    private int _activeTab;
+    private string _status = "Confirmed";
+    private ItemStatus SelectedStatus => Enum.Parse<ItemStatus>(_status);
+    private int _queryVersion;
+    private long _summaryCount;
+    private decimal _summaryAmount;
+    private ObjectId _userId;
+    private List<UncheckedReasonDto> _reasonDtos = [];
+    private List<CheckItem> _ownerItems = [];
+    private List<PaymentBillDto> _paymentBills = [];
+    private List<ReceiptDto> _receipts = [];
+    private HashSet<ObjectId> _selectedReceiptIds = [];
+    private bool _paymentLoading;
+    private bool _receiptLoading;
+    private bool _reasonLoading;
+    private CheckItem? _editItem;
+    private EditItemModel _editModel = new();
+    private IBrowserFile? _editFile;
+    private bool _editing;
+    private string? _editError;
+    private string? _message;
+    private string? _error;
+    private bool _showPaymentBillDetail;
+    private PaymentBillDto _selectedPaymentBill;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        ObjectId.TryParse(state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out _userId);
+        await LoadSummaryAsync();
+    }
+
+    private void ShowItemTab()
+    {
+        _activeTab = 0;
+        _message = null;
+        _error = null;
+    }
+
+    private async Task ShowPaymentTabAsync()
+    {
+        _activeTab = 1;
+        _message = null;
+        _error = null;
+        _paymentLoading = true;
+        try
+        {
+            _paymentBills = (await PaymentService.GetUserPaymentBillsAsync(_userId)).ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _paymentLoading = false;
+        }
+    }
+
+    private async Task ShowReceiptTabAsync()
+    {
+        _activeTab = 2;
+        _message = null;
+        _error = null;
+        await LoadReceiptsAsync();
+    }
+
+    private async Task ShowReasonTabAsync()
+    {
+        _activeTab = 3;
+        _message = null;
+        _error = null;
+        _reasonLoading = true;
+        try
+        {
+            var reasons = await ReasonRepository.FindByUserAsync(_userId);
+            _ownerItems = (await ItemService.FindByOwnerAsync(_userId)).ToList();
+            var itemMap = _ownerItems.ToDictionary(x => x.Id);
+            _reasonDtos = reasons
+                .Where(x => itemMap.ContainsKey(x.ItemId))
+                .Select(x => new UncheckedReasonDto(x, itemMap[x.ItemId]))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            _reasonDtos = [];
+        }
+        finally
+        {
+            _reasonLoading = false;
+        }
+    }
+
+    private async Task SearchAsync()
+    {
+        await LoadSummaryAsync();
+        _queryVersion++;
+    }
+
+    private async Task LoadSummaryAsync()
+    {
+        (_summaryCount, _summaryAmount) = await ItemService.GetSummaryAsync(SelectedStatus);
+    }
+
+    private async ValueTask<ItemsProviderResult<CheckItem>> LoadItemsAsync(ItemsProviderRequest request)
+    {
+        var result = await ItemService.GetPageAsync(SelectedStatus, request.StartIndex, request.Count);
+        return new ItemsProviderResult<CheckItem>(result.Items, checked((int)result.Total));
+    }
+
+    private async Task LoadReceiptsAsync()
+    {
+        _receiptLoading = true;
+        try
+        {
+            _receipts = (await ReceiptService.GetUserReceiptsAsync(_userId)).ToList();
+            _selectedReceiptIds.Clear();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            _receipts = [];
+        }
+        finally
+        {
+            _receiptLoading = false;
+        }
+    }
+
+    private void ToggleReceipt(string id, ChangeEventArgs e)
+    {
+        if (!ObjectId.TryParse(id, out var objectId))
+            return;
+
+        var selected = e.Value is bool value && value;
+        if (selected)
+            _selectedReceiptIds.Add(objectId);
+        else
+            _selectedReceiptIds.Remove(objectId);
+    }
+
+    private void DownloadSelectedReceipts()
+    {
+        if (_selectedReceiptIds.Count == 0)
+            return;
+
+        var ids = string.Join(',', _selectedReceiptIds);
+        var url = $"/receipts/export?ids={Uri.EscapeDataString(ids)}";
+        NavigationManager.NavigateTo(url, forceLoad: true);
+    }
+
+    private async Task HandleReceiptImport(InputFileChangeEventArgs e)
+    {
+        _message = null;
+        _error = null;
+        try
+        {
+            var count = await ReceiptService.ImportAsync(_userId, e.File);
+            _message = $"成功匯入 {count} 張收據。";
+            await LoadReceiptsAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task EditItemAsync(CheckItem item)
+    {
+        _editItem = item;
+        _editModel = new EditItemModel { ItemName = item.ItemName, Amount = item.Amount };
+        _editFile = null;
+        _editError = null;
+        await Task.CompletedTask;
+    }
+
+    private void CloseEdit() => _editItem = null;
+
+    private async Task SaveEditAsync()
+    {
+        if (_editItem is null)
+            return;
+
+        _editing = true;
+        _editError = null;
+        try
+        {
+            await ItemService.UpdateOwnedItemAsync(_userId, _editItem.Id, _editModel.ItemName, _editModel.Amount, _editFile);
+            _editItem = null;
+            await ShowReasonTabAsync();
+        }
+        catch (Exception ex)
+        {
+            _editError = ex.Message;
+        }
+        finally
+        {
+            _editing = false;
+        }
+    }
+
+    private static string GetStatusText(ItemStatus status) => status switch
+    {
+        ItemStatus.Pending => "未認結",
+        ItemStatus.Confirmed => "已認結",
+        ItemStatus.Settled => "已結清",
+        _ => status.ToString()
+    };
+
+    private sealed class EditItemModel
+    {
+        public string ItemName { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+    }
+
+    private Task ShowPaymentBillDetail(PaymentBillDto bill)
+    {
+        _selectedPaymentBill = bill;
+        _showPaymentBillDetail = true;
+        return Task.CompletedTask;
+    }
+}

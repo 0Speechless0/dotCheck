@@ -1,0 +1,89 @@
+@page "/"
+@attribute [AllowAnonymous]
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IHttpContextAccessor HttpContextAccessor
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+
+<PageTitle>登入 / 註冊</PageTitle>
+
+<div class="auth-page">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1>dotCheck</h1>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Error))
+        {
+            <div class="notice error">@Error</div>
+        }
+        @if (!string.IsNullOrWhiteSpace(RegisterError))
+        {
+            <div class="notice error">@RegisterError</div>
+        }
+
+        <section class="auth-section">
+            <h2>登入</h2>
+            <form method="post" action="/auth/login" class="form-stack">
+                <input type="hidden" name="__RequestVerificationToken" value="@_antiForgeryToken" />
+                <label>帳號 / 姓名</label>
+                <input class="input" name="userName" autocomplete="username" required maxlength="100" />
+
+                <label>密碼</label>
+                <input class="input" type="password" name="password" autocomplete="current-password" required
+                       minlength="6" maxlength="200" />
+
+                <button class="button primary full" type="submit">登入</button>
+            </form>
+        </section>
+
+        <section class="auth-section secondary-card">
+            <h2>使用者註冊</h2>
+            <form method="post" action="/auth/register" class="form-stack">
+                <input type="hidden" name="__RequestVerificationToken" value="@_antiForgeryToken" />
+                <label>帳號 / 姓名</label>
+                <input class="input" name="userName" autocomplete="username" required maxlength="100" />
+
+                <label>密碼</label>
+                <input class="input" type="password" name="password" autocomplete="new-password" required minlength="6"
+                       maxlength="200" />
+
+                <button class="button full" type="submit">註冊並登入</button>
+            </form>
+        </section>
+
+    </div>
+</div>
+
+@code {
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState =
+            await AuthenticationStateProvider.GetAuthenticationStateAsync();
+
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            Navigation.NavigateTo("/items/create");
+            return;
+        }
+
+    }
+
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? Error { get; set; }
+
+    [SupplyParameterFromQuery(Name = "registerError")]
+    private string? RegisterError { get; set; }
+
+    private string? _antiForgeryToken;
+
+    protected override void OnInitialized()
+    {
+        var httpContext = HttpContextAccessor.HttpContext;
+        if (httpContext is not null)
+        {
+            _antiForgeryToken = Antiforgery.GetAndStoreTokens(httpContext).RequestToken;
+        }
+    }
+}

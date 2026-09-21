@@ -1,0 +1,151 @@
+@inject ApprovalService ApprovalService
+@inject ItemService ItemService
+
+
+<div class="container page-content">
+    <div class="page-heading">
+        <div>
+            <p>管理者不考慮規則直接認結</p>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <Loading />
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(_message))
+        {
+            <div class="notice success">@_message</div>
+        }
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <div class="notice error">@_error</div>
+        }
+
+        <div class="table-card">
+            <div class="table-toolbar">
+                <span>共 @_items.Count 筆待處理項目</span>
+                <span>勾選：@SelectedCount / @_items.Count</span>
+            </div>
+            <div class="table-scroll">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th class="check-col">選取</th>
+                            <th>項目</th>
+                            <th>金額</th>
+                            <th>狀態</th>
+                            <th>申請人</th>
+                            <th>發票</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _items)
+                        {
+                            var alreadyApproved = item.ApprovedUserIds.Contains(_userId);
+                            <tr>
+                                <td>
+                                    <input type="checkbox" @bind="_selected[item.Id]" disabled="@alreadyApproved" />
+                                </td>
+                                <td data-label="項目">@item.ItemName</td>
+                                <td data-label="金額" class="money">@item.Amount.ToString("C0")</td>
+                                <td data-label="狀態"><span
+                                    class="status @item.Status.ToString().ToLowerInvariant()">@GetStatusText(item.Status)</span>
+                                </td>
+                                <td data-label="申請人">@item.OwnerUserName</td>
+                                <td data-label="發票">
+                                    @if (item.InvoiceFile is not null)
+                                    {
+                                        <a target="_blank" href="/invoice/@item.Id">查看</a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="form-actions sticky-actions">
+                <button class="button primary" @onclick="SubmitAsync"
+                        disabled="@(_submitting || _items.Count == 0)">@(_submitting ? "提交中…" :
+                        "認結勾選項目")</button>
+                </div>
+            </div>
+        }
+
+    </div>
+
+@code {
+    private List<CheckItem> _items = [];
+    private Dictionary<ObjectId, bool> _selected = [];
+    private List<CheckItem> _unselectedItems = [];
+    private ObjectId _userId;
+    private string _userName = string.Empty;
+    private bool _loading = true;
+    private bool _submitting;
+    private bool _showReasonDialog;
+    private string? _message;
+    private string? _error;
+    private string _selectedReason;
+    private bool _showReason;
+
+    private int SelectedCount => _selected.Count(x => x.Value);
+    protected override async Task OnInitializedAsync()
+    {
+
+        await LoadAsync();
+    }
+    private void ShowReason(string reason)
+    {
+        _selectedReason = reason;
+        _showReason = true;
+    }
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _items = (await ItemService.GetPendingItemsAsync()).ToList();
+        _selected = _items.ToDictionary(x => x.Id, x => true);
+        _loading = false;
+    }
+
+    private async Task SubmitAsync()
+    {
+
+        _message = null;
+        _error = null;
+
+
+        _submitting = true;
+        try
+        {
+
+            await ItemService.AdminApproveItemsAsync(_items.Select(x => x.Id.ToString()).ToList());
+            _message = "已認結勾選資料。";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+
+    private void CancelReason()
+    {
+        _showReasonDialog = false;
+        _unselectedItems = [];
+    }
+
+    private static string GetStatusText(ItemStatus status) => status switch
+    {
+        ItemStatus.Pending => "未認結",
+        ItemStatus.Confirmed => "已認結",
+        ItemStatus.Settled => "已結清",
+        _ => status.ToString()
+    };
+}

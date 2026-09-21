@@ -1,0 +1,179 @@
+@using dotCheck.Application.DTOs
+@using dotCheck.Infrastructure.Mongo
+@inject IItemRepository ItemRepository
+@if (IsOpen)
+{
+    <div class="payment-dialog-backdrop" @onclick="Close">
+
+        <div class="payment-dialog" @onclick:stopPropagation="true">
+
+            <div class="payment-dialog-header">
+                <div>
+                    <h4>繳費項目明細</h4>
+
+                    <div class="payment-dialog-info">
+                        <div>
+                            <span class="label">繳費單 ID：</span>
+                            <span>@PaymentBill.Id </span>
+                        </div>
+
+                        <div>
+                            <span class="label">涵蓋日期：</span>
+                            <span>
+                                @PaymentBill.StartDate.ToString("yyyy/MM/dd")
+                                ~
+                                @PaymentBill.EndDate.ToString("yyyy/MM/dd")
+                            </span>
+                        </div>
+
+                        <div>
+                            <span class="label">項目總金額：</span>
+                            <strong>
+                                @PaymentBill.TotalAmount
+                            </strong>
+                        </div>
+                        <div>
+                            <span class="label">每人平攤金額：</span>
+                            <strong>
+                                @(PaymentBill.TotalAmount / PaymentBill.PayerCount)
+                            </strong>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" class="payment-dialog-close" @onclick="Close">
+                    ×
+                </button>
+            </div>
+
+            <div class="payment-dialog-body">
+
+                @if (!_items.Any())
+                {
+                    <div class="payment-empty">
+                        此繳費單沒有項目明細。
+                    </div>
+                }
+                else
+                {
+                    <div class="payment-item-list">
+
+                        @foreach (var item in _items)
+                        {
+                            <div class="payment-item">
+
+                                <div class="payment-item-main">
+                                    <div class="payment-item-name">
+                                        @item.ItemName
+                                    </div>
+
+                                    <div class="payment-item-id">
+                                        ID：@item.Id
+                                    </div>
+                                </div>
+
+                                <div class="payment-item-info">
+                                    <div>
+                                        <span class="item-label">
+                                            金額
+                                        </span>
+
+                                        <strong>
+                                            @item.Amount.ToString("C0")
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        <span class="item-label">
+                                            申請人
+                                        </span>
+
+                                        <span>
+                                            @item.OwnerUserName
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span class="item-label">
+                                            事由
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span class="item-label">
+                                            填表日期
+                                        </span>
+
+                                        <span>
+                                            @(item.FormDate
+                                            .ToLocalTime()
+                                            .ToString("yyyy/MM/dd"))
+                                        </span>
+                                    </div>
+
+                                    @if (!string.IsNullOrWhiteSpace(
+                                        item.InvoiceFile?.RelativePath))
+                                    {
+                                        <div>
+                                            <a href="@($"/invoice/{item.Id}")" target="_blank" rel="noopener noreferrer">
+                                                查看發票
+                                            </a>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                    </div>
+                }
+
+            </div>
+
+            <div class="payment-dialog-footer">
+
+                <div class="payment-item-count">
+                    共
+                    <strong>@_items.Count()</strong>
+                    個項目
+                </div>
+
+                <button type="button" class="button mute" @onclick="Close">
+                    關閉
+                </button>
+
+            </div>
+        </div>
+
+    </div>
+}
+
+@code {
+
+
+    [Parameter]
+    public bool IsOpen { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> IsOpenChanged { get; set; }
+
+    [Parameter]
+    public PaymentBillDto PaymentBill { get; set; }
+
+    private IEnumerable<CheckItem> _items { get; set; }
+        = Enumerable.Empty<CheckItem>();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsOpen && PaymentBill?.ItemIds?.Any() == true)
+        {
+            _items = await ItemRepository.FindByIdsAsync(PaymentBill.ItemIds);
+            _items = _items.Concat(await ItemRepository.FindByIdsAsync(PaymentBill.ItemIds));
+            _items = _items.Concat(await ItemRepository.FindByIdsAsync(PaymentBill.ItemIds));
+        }
+
+    }
+
+
+    private async Task Close()
+    {
+        await IsOpenChanged.InvokeAsync(false);
+    }
+}

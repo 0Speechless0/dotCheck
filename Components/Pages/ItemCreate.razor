@@ -1,0 +1,171 @@
+@page "/items/create"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ItemService ItemService
+@inject NavigationManager Navigation
+
+<PageTitle>項目表單新增</PageTitle>
+
+<div class="container page-content">
+    <div class="page-heading">
+        <div>
+            <h1>項目表單新增</h1>
+            <p>填寫欲提交認結的項目資訊。</p>
+        </div>
+    </div>
+
+    @if (_isLoading)
+    {
+        <Loading />
+    }
+    else
+    {
+        <EditForm Model="_model" OnValidSubmit="CreateItemAsync">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="form-grid">
+                @* <div>
+                    <label>填表日期</label>
+                    <input class="input" value="@_formDate.ToString("yyyy-MM-dd HH:mm:ss")" disabled />
+                </div> *@
+                <div>
+                    <label>填表人</label>
+                    <input class="input" value="@_userName" disabled />
+                </div>
+                <div class="full-span">
+                    <label>項目名稱</label>
+                    <InputText class="input" @bind-Value="_model.ItemName" maxlength="200" />
+                    <ValidationMessage For="() => _model.ItemName" />
+                </div>
+                <div class="full-span">
+                    <label>申請目的</label>
+                    <InputTextArea class="input" @bind-Value="_model.ForThing" maxlength="200" />
+                    <ValidationMessage For="() => _model.ForThing" />
+                </div>
+                <div>
+                    <label>項目金額</label>
+                    <InputNumber class="input" @bind-Value="_model.Amount" min="0.01" step="0.01" />
+                    <ValidationMessage For="() => _model.Amount" />
+                </div>
+                <div>
+                    <label>發票圖片</label>
+
+                    <div class="invoice-upload desktop-invoice-upload">
+                        <InputFile @key="_fileInputKey" OnChange="HandleFileSelected"
+                                   accept="image/jpeg,image/png,image/webp" />
+                    </div>
+
+                    <div class="invoice-upload mobile-invoice-upload">
+                        <InputFile @key="_cameraInputKey" OnChange="HandleFileSelected"
+                                   accept="image/jpeg,image/png,image/webp" capture="environment" />
+                        <div class="muted">手機版會優先開啟後鏡頭拍攝發票。</div>
+                    </div>
+
+                    <div class="muted">限 JPG / PNG / WEBP，最大 2MB。</div>
+                    @if (_selectedFile is not null)
+                    {
+                        <div class="file-chip">@_selectedFile.Name (@(_selectedFile.Size / 1024.0 / 1024.0):F2 MB)</div>
+                    }
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_message))
+            {
+                <div class="notice success">@_message</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <div class="notice error">@_error</div>
+            }
+
+            <div class="form-actions">
+                <button class="button primary" type="submit" disabled="@_submitting">@(_submitting ? "提交中…" :
+                                                                                                                                                                                                                    "提交項目")</button>
+                    <button class="button" type="button" @onclick="ResetForm" disabled="@_submitting">清除</button>
+                </div>
+            </EditForm>
+        }
+    </div>
+
+@code {
+    private readonly CreateItemModel _model = new();
+    private string _userName = string.Empty;
+    private ObjectId _userId;
+    private DateTime _formDate = DateTime.Now;
+    private IBrowserFile? _selectedFile;
+    private int _fileInputKey;
+    private int _cameraInputKey;
+    private bool _isLoading = true;
+    private bool _submitting;
+    private string? _message;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = state.User;
+        _userName = user.Identity?.Name ?? string.Empty;
+        if (!ObjectId.TryParse(user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out _userId))
+        {
+            Navigation.NavigateTo("/login", true);
+            return;
+        }
+
+        _isLoading = false;
+    }
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        _selectedFile = e.File;
+        _error = _selectedFile.Size > 2 * 1024 * 1024 ? "檔案超過 2MB。" : null;
+    }
+
+    private async Task CreateItemAsync()
+    {
+        _submitting = true;
+        _message = null;
+        _error = null;
+
+        try
+        {
+            // 暫時註解
+            if (_selectedFile is null && false)
+                throw new InvalidOperationException("請上傳發票圖片。");
+
+            await ItemService.CreateAsync(_userId, _userName, _model.ItemName, _model.ForThing, _model.Amount, _selectedFile);
+            _message = "項目已提交。";
+            ResetForm();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private void ResetForm()
+    {
+        _model.ItemName = string.Empty;
+        _model.Amount = 0;
+        _selectedFile = null;
+        _fileInputKey++;
+        _cameraInputKey++;
+        _formDate = DateTime.Now;
+    }
+
+    private sealed class CreateItemModel
+    {
+        [Required(ErrorMessage = "請輸入項目名稱。")]
+        public string ItemName { get; set; } = string.Empty;
+
+        public string ForThing { get; set; } = string.Empty;
+
+        [Range(typeof(decimal), "0.01", "79228162514264337593543950335", ErrorMessage = "項目金額必須大於 0。")]
+        public decimal Amount { get; set; }
+    }
+}

@@ -1,0 +1,28 @@
+@if (Visible)
+{
+    <div class="modal-backdrop" @onclick="Cancel">
+        <div class="modal-card small" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h2>@Title</h2>
+            </div>
+            <div class="modal-body">
+                <p>@Message</p>
+            </div>
+            <div class="modal-footer">
+                <button class="button" @onclick="Cancel">取消</button>
+                <button class="button primary" @onclick="Confirm">確認</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public string Title { get; set; } = "確認";
+    [Parameter] public string Message { get; set; } = "確定要執行嗎？";
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private Task Confirm() => OnConfirm.InvokeAsync();
+    private Task Cancel() => OnCancel.InvokeAsync();
+}

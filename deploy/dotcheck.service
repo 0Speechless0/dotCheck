@@ -1,0 +1,28 @@
+[Unit]
+Description=dotCheck Blazor Web App
+After=network.target mongod.service
+
+[Service]
+Type=exec
+User=dotcheck
+Group=dotcheck
+WorkingDirectory=/opt/dotCheck
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5000
+Environment=MONGODB_URI=mongodb://127.0.0.1:27017
+Environment=FileStorage__RootPath=/home/dotcheck/dotCheck
+ExecStart=/usr/bin/dotnet /opt/dotCheck/dotCheck.dll
+Restart=always
+RestartSec=5
+
+# Optional initial admin seed. Remove after first deployment or replace with a secret manager.
+# Environment=Admin__UserName=admin
+# Environment=Admin__Password=change-me-now
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/home/dotcheck/dotCheck /opt/dotCheck
+
+[Install]
+WantedBy=multi-user.target

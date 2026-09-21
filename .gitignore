@@ -1,0 +1,10 @@
+bin/
+obj/
+.vscode/
+*.user
+*.suo
+publish/
+
+# local secrets
+appsettings.Local.json
+.env

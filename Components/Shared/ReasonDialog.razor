@@ -1,0 +1,63 @@
+@if (Visible)
+{
+    <div class="modal-backdrop">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2>填寫未認結理由</h2>
+            </div>
+            <div class="modal-body">
+                <p>以下項目未勾選，請輸入原因。提交後會為每個未認結項目留下紀錄。</p>
+                <div class="reason-items">
+                    @foreach (var item in Items)
+                    {
+                        <div class="reason-item">
+                            <strong>@item.ItemName</strong>
+                            <span>@item.Amount.ToString("N0")</span>
+                        </div>
+                    }
+                </div>
+                <textarea class="input textarea" @bind="Reason" maxlength="500" placeholder="請輸入未認結理由"></textarea>
+                @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+                {
+                    <div class="notice error">@ErrorMessage</div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="button" @onclick="Cancel">取消提交</button>
+                <button class="button primary" @onclick="Submit">確認提交</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public IReadOnlyCollection<CheckItem> Items { get; set; } = Array.Empty<CheckItem>();
+    [Parameter] public EventCallback<string> OnSubmit { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private string Reason { get; set; } = string.Empty;
+    private string? ErrorMessage { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (!Visible)
+        {
+            Reason = string.Empty;
+            ErrorMessage = null;
+        }
+    }
+
+    private async Task Submit()
+    {
+        if (string.IsNullOrWhiteSpace(Reason))
+        {
+            ErrorMessage = "請輸入未認結理由。";
+            return;
+        }
+
+        await OnSubmit.InvokeAsync(Reason.Trim());
+    }
+
+    private Task Cancel() => OnCancel.InvokeAsync();
+}

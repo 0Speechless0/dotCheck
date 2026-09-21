@@ -1,0 +1,83 @@
+@if (IsOpen)
+{
+    <div class="dialog-backdrop" @onclick="HandleBackdropClick">
+        <div class="dialog-container" @onclick:stopPropagation="true">
+
+            <div class="dialog-header">
+                <h4>@Title</h4>
+
+                <button type="button" class="dialog-close" @onclick="Close">
+                    ×
+                </button>
+            </div>
+
+            <div class="dialog-body">
+                <div class="full-span">
+                    <InputTextArea class="input" maxlength="200" disabled rows=" @Rows" @bind-Value="Content" />
+                </div>
+            </div>
+
+            <div class="dialog-footer">
+                <button type="button" class="button" @onclick="Close">
+                    取消
+                </button>
+
+                <button type="button" class="button" @onclick="Confirm">
+                    確定
+                </button>
+            </div>
+
+        </div>
+    </div>
+}
+
+
+@code {
+    [Parameter]
+    public bool IsOpen { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> IsOpenChanged { get; set; }
+
+    [Parameter]
+    public string Title { get; set; } = "內容";
+
+    [Parameter]
+    public string Content { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> ContentChanged { get; set; }
+
+    [Parameter]
+    public int Rows { get; set; } = 6;
+
+    [Parameter]
+    public EventCallback OnConfirm { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    [Parameter]
+    public bool CloseOnBackdropClick { get; set; } = true;
+
+    private async Task Close()
+    {
+        await OnCancel.InvokeAsync();
+        await IsOpenChanged.InvokeAsync(false);
+    }
+
+    private async Task Confirm()
+    {
+        await ContentChanged.InvokeAsync(Content);
+        await OnConfirm.InvokeAsync();
+        await IsOpenChanged.InvokeAsync(false);
+    }
+
+    private async Task HandleBackdropClick()
+    {
+        if (CloseOnBackdropClick)
+        {
+            await Close();
+        }
+    }
+}

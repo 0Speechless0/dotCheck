@@ -1,0 +1,387 @@
+@page "/admin/manage"
+@using dotCheck.Application.DTOs
+@attribute [Authorize(Roles = "Admin")]
+@rendermode InteractiveServer
+@inject PaymentService PaymentService
+@inject ReceiptService ReceiptService
+@inject IUserRepository UserRepository
+@inject IItemRepository ItemRepository
+
+<PageTitle>管理中心</PageTitle>
+
+<div class="container page-content">
+    <div class="page-heading">
+        <div>
+            <h1>管理中心</h1>
+            <p>管理已認結項目、生成繳費單與開立收據。</p>
+        </div>
+    </div>
+
+    <div class="query-tabs">
+        <button class="tab @(_activeTab == 2 ? "active" : "")" @onclick="ShowItemUnconfirmed">認結項目</button>
+        <button class="tab @(_activeTab == 0 ? "active" : "")" @onclick="ShowBillGeneration">生成繳費單</button>
+        <button class="tab @(_activeTab == 1 ? "active" : "")" @onclick="ShowReceiptIssue">收據開立</button>
+
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <div class="notice success">@_message</div>
+    }
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="notice error">@_error</div>
+    }
+
+    @if (_activeTab == 2)
+    {
+        <AdminItemApprove />
+    }
+    else if (_activeTab == 0)
+    {
+        <section>
+            <div class="settle-summary-grid">
+                <div class="summary-card">
+                    <span>認結項目數</span>
+                    <strong>@_confirmedItems.Count</strong>
+                </div>
+
+
+                <div class="summary-card">
+                    <span>認結項目總金額</span>
+                    <strong>@_confirmedItems.Sum(x => x.Amount)</strong>
+                </div>
+                <div class="summary-card">
+                    <span>結清項目數</span>
+                    <strong>@_settledItems.Count</strong>
+                </div>
+                <div class="summary-card">
+                    <span>結清項目數金額</span>
+                    <strong>@_settledItems.Sum(x => x.Amount)</strong>
+                </div>
+            </div>
+
+            @if (_loading)
+            {
+                <Loading />
+            }
+            else if (_confirmedItems.Count == 0)
+            {
+                <div class="notice">目前沒有已認結項目。</div>
+            }
+            else
+            {
+                <div class="table-card">
+                    <div class="table-toolbar">
+                        <span>所有已認結項目</span>
+                        <span>共 @_confirmedItems.Count 筆</span>
+                    </div>
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>項目 ID</th>
+                                    <th>項目</th>
+                                    <th>日期</th>
+                                    <th>金額</th>
+                                    <th>申請人</th>
+                                    <th>發票</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in _confirmedItems)
+                                {
+                                    <tr>
+                                        <td data-label="項目 ID">@item.Id</td>
+                                        <td data-label="項目">@item.ItemName</td>
+                                        <td data-label="日期">@item.FormDate.ToLocalTime().ToString("yyyy-MM-dd")</td>
+                                        <td data-label="金額" class="money">@item.Amount.ToString("C0")</td>
+                                        <td data-label="申請人">@item.OwnerUserName</td>
+                                        <td data-label="發票"><a target="_blank" href="/invoice/@item.Id">查看</a></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="form-actions sticky-actions">
+                        <button class="button primary" @onclick="GeneratePaymentBillAsync" disabled="@_generating">
+                            @(_generating ? "生成中…" : "生成項目繳費單")
+                        </button>
+                    </div>
+                </div>
+            }
+        </section>
+    }
+    else
+    {
+        <section class="form-stack">
+            <div class="filter-card">
+                <div style="flex:1;">
+                    <label>搜尋使用者</label>
+                    <input class="input" list="user-options" @bind="_userSearch" @bind:event="oninput"
+                           placeholder="輸入姓名 / 帳號後按搜尋" />
+                    <datalist id="user-options">
+
+                        @foreach (var user in _userOptions)
+                        {
+                            <option value="@user.UserName"></option>
+                        }
+                    </datalist>
+                </div>
+                <button class="button" @onclick="SearchUsersAsync" disabled="@_userSearching">搜尋</button>
+                <div style="flex:1;">
+                    <label>已選使用者</label>
+                    <select class="input" @bind="_selectedUserId">
+                        <option value="">請選擇使用者</option>
+
+                        @foreach (var user in _userOptions)
+                        {
+                            <option value="@user.Id">@user.UserName</option>
+                        }
+                    </select>
+                </div>
+                <button class="button primary" @onclick="LoadUserBillsAsync"
+                        disabled="@string.IsNullOrWhiteSpace(_selectedUserId)">查詢繳費單</button>
+            </div>
+
+            @if (_selectedUser is not null)
+            {
+                <div class="notice">目前使用者：<strong>@_selectedUser.UserName</strong></div>
+            }
+
+            @if (_billsLoading)
+            {
+                <Loading />
+            }
+            else if (_userBills.Count == 0 && _hasQueriedBills)
+            {
+                <div class="notice">目前查無該使用者的應繳繳費單。</div>
+            }
+            else if (_userBills.Count > 0)
+            {
+                <div class="table-card">
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>涵蓋日期</th>
+                                    <th>應繳金額</th>
+                                    <th>需繳人數</th>
+                                    <th>已繳人數</th>
+                                    <th>狀態</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var bill in _userBills)
+                                {
+                                    <tr>
+                                        <td data-label="涵蓋日期">@bill.StartDate.ToLocalTime().ToString("yyyy-MM-dd") ~
+                                            @bill.EndDate.ToLocalTime().ToString("yyyy-MM-dd")</td>
+                                            <td data-label="應繳總金額" class="money">@bill.PayableAmount</td>
+                                            <td data-label="需繳人數">@bill.PayerCount</td>
+                                            <td data-label="已繳人數">@bill.PaidUserCount</td>
+                                            <td data-label="狀態">
+                                                @if (bill.PaidReceiptExists)
+                                                {
+                                                    <span class="status settled">已開立收據</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="status pending">待開立收據</span>
+                                                }
+                                            </td>
+                                            <td data-label="操作">
+                                                @if (!bill.PaidReceiptExists)
+                                                {
+                                                    <button class="button small" @onclick="() => IssueReceiptAsync(bill)">開立收據</button>
+                                                }
+                                                else
+                                                {
+                                                    <span class="muted">已完成</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            </section>
+        }
+
+        @if (_issuedReceipt is not null)
+        {
+            <div class="modal-backdrop">
+                <div class="modal-card">
+                    <div class="modal-header">
+                        <h2>收據已開立</h2>
+                        <button class="icon-button" @onclick="CloseReceipt">×</button>
+                    </div>
+                    <div class="modal-body form-stack receipt-detail">
+                        <div><strong>繳費單涵蓋日期</strong><span>@_issuedReceipt.StartDate.ToLocalTime().ToString("yyyy-MM-dd") ~
+                            @_issuedReceipt.EndDate.ToLocalTime().ToString("yyyy-MM-dd")</span></div>
+                            <div><strong>繳款人姓名</strong><span>@_issuedReceipt.UserName</span></div>
+                            <div><strong>應繳納金額</strong><span>@_issuedReceipt.Amount.ToString("C0")</span></div>
+                            <div><strong>驗證公鑰</strong><textarea class="input code-text" rows="6"
+                                                                    readonly>@_issuedReceipt.PublicKey</textarea></div>
+                                <div><strong>私鑰簽署整個 Payload 的數位簽章</strong><textarea class="input code-text" rows="5"
+                                                                                        readonly>@_issuedReceipt.Signature</textarea></div>
+                                    <div><strong>驗證方法</strong><span>@_issuedReceipt.VerificationMethod</span></div>
+                                    <div><strong>Payload</strong><textarea class="input code-text" rows="8"
+                                                                               readonly>@_issuedReceipt.Payload</textarea></div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button class="button primary" @onclick="CloseReceipt">關閉</button>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+@code {
+    private int _activeTab = 2;
+    private List<CheckItem> _confirmedItems = [];
+    private List<CheckItem> _settledItems = [];
+    private bool _loading = true;
+    private bool _generating;
+    private bool _userSearching;
+    private bool _billsLoading;
+    private bool _hasQueriedBills;
+    private string? _message;
+    private string? _error;
+
+    private string _userSearch = string.Empty;
+    private string _selectedUserId = string.Empty;
+    private List<User> _userOptions = [];
+    private User? _selectedUser;
+    private List<PaymentBillDto> _userBills = [];
+    private ReceiptDto? _issuedReceipt;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadConfirmedAsync();
+    }
+
+    private void ShowBillGeneration()
+    {
+        _activeTab = 0;
+        _message = null;
+        _error = null;
+    }
+
+    private void ShowReceiptIssue()
+    {
+        _activeTab = 1;
+        _message = null;
+        _error = null;
+    }
+    private void ShowItemUnconfirmed()
+    {
+        _activeTab = 2;
+        _message = null;
+        _error = null;
+    }
+    private async Task LoadConfirmedAsync()
+    {
+        _loading = true;
+        try
+        {
+            _confirmedItems = (await ItemRepository.FindAllByStatusAsync(ItemStatus.Confirmed)).ToList();
+            _settledItems = (await ItemRepository.FindAllByStatusAsync(ItemStatus.Settled)).ToList();
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task GeneratePaymentBillAsync()
+    {
+        _generating = true;
+        _message = null;
+        _error = null;
+        try
+        {
+            var (bill, settledCount) = await PaymentService.CreatePaymentBillAsync();
+            _message = $"繳費單 {bill.Id} 已建立，涵蓋 {bill.ItemIds.Count} 個項目、總金額 {bill.TotalAmount:N2}，已更新 {settledCount}/{bill.ItemIds.Count} 筆項目為已結清。";
+            await LoadConfirmedAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _generating = false;
+        }
+    }
+
+    private async Task SearchUsersAsync()
+    {
+        _userSearching = true;
+        _error = null;
+        try
+        {
+            _userOptions = (await UserRepository.SearchActiveAsync(_userSearch, 20)).ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _userSearching = false;
+        }
+    }
+
+    private async Task LoadUserBillsAsync()
+    {
+        _billsLoading = true;
+        _hasQueriedBills = true;
+        _error = null;
+        try
+        {
+            if (!ObjectId.TryParse(_selectedUserId, out var userId))
+                throw new InvalidOperationException("請選擇有效使用者。");
+
+            _selectedUser = _userOptions.FirstOrDefault(x => x.Id == userId)
+                ?? await UserRepository.FindByIdAsync(userId);
+
+            if (_selectedUser is null)
+                throw new InvalidOperationException("找不到選擇的使用者。");
+
+            _userBills = (await PaymentService.GetUserPaymentBillsAsync(userId)).ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            _userBills = [];
+        }
+        finally
+        {
+            _billsLoading = false;
+        }
+    }
+
+    private async Task IssueReceiptAsync(PaymentBillDto bill)
+    {
+        _error = null;
+        try
+        {
+            if (!ObjectId.TryParse(_selectedUserId, out var userId))
+                throw new InvalidOperationException("請選擇有效使用者。");
+
+            _issuedReceipt = await ReceiptService.IssueReceiptAsync(ObjectId.Parse(bill.Id), userId);
+            _message = "收據已開立並完成數位簽章。";
+            _userBills = (await PaymentService.GetUserPaymentBillsAsync(userId)).ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private void CloseReceipt() => _issuedReceipt = null;
+}
