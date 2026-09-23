@@ -8,8 +8,6 @@ using dotCheck.Infrastructure.Files;
 namespace dotCheck.Application.Services;
 
 public sealed class ItemService(
-    MongoDbContext context,
-    IUserRepository userRepository,
     IItemRepository itemRepository,
     IReasonRepository reasonRepository,
     InvoiceFileService fileService)
@@ -143,11 +141,12 @@ public sealed class ItemService(
     }
 
 
-    public Task<long> CountActiveUsersAsync(CancellationToken cancellationToken = default) =>
-        userRepository.CountActiveAsync(cancellationToken);
 
     public async Task<IReadOnlyList<CheckItem>> GetPendingItemsAsync() =>
         await itemRepository.FindAllByStatusAsync(ItemStatus.Pending, CancellationToken.None);
+
+    public async Task<IReadOnlyList<CheckItem>> GetConfirmedItemsAsync() =>
+        await itemRepository.FindAllByStatusAsync(ItemStatus.Confirmed, CancellationToken.None);
 
     public async Task AdminApproveItemsAsync(List<string> itemIds) =>
         await itemRepository.SetStatusAsync(

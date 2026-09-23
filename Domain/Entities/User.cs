@@ -23,4 +23,13 @@ public sealed class User
 
     [BsonElement("createdAt")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [BsonElement("asymmetricKeyId")]
+    public string AsymmetricKeyId { get; set; } = string.Empty;
+
+    [BsonElement("publicKeyPem")]
+    public string PublicKeyPem { get; set; } = string.Empty;
+
+    [BsonElement("privateKeyProtectedPem")]
+    public string PrivateKeyProtectedPem { get; set; } = string.Empty;
 }

@@ -1,0 +1,138 @@
+.payout-bill-panel {
+    width: 100%;
+}
+
+.payout-bill-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.payout-bill-toolbar h2 {
+    margin: 0 0 .25rem;
+}
+
+.payout-bill-actions {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+}
+
+.payout-bill-list {
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+}
+
+.payout-bill-card {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: .75rem;
+    padding: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    background: #fff;
+}
+
+.payout-bill-check {
+    display: flex;
+    justify-content: center;
+    padding-top: .2rem;
+}
+
+.payout-bill-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    margin-bottom: .9rem;
+}
+
+.payout-bill-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .85rem;
+}
+
+.payout-bill-grid>div {
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+}
+
+.payout-bill-grid span,
+.payout-bill-signature-content span {
+    color: #777;
+    font-size: .8rem;
+}
+
+.payout-bill-grid strong {
+    overflow-wrap: anywhere;
+}
+
+.payout-bill-signature-detail {
+    margin-top: 1rem;
+    border-top: 1px solid #eee;
+    padding-top: .75rem;
+}
+
+.payout-bill-signature-detail summary {
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.payout-bill-signature-content {
+    display: grid;
+    gap: .75rem;
+    margin-top: .75rem;
+}
+
+.payout-bill-signature-content>div {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+}
+
+.payout-code {
+    width: 100%;
+    resize: vertical;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (max-width: 767px) {
+    .payout-bill-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .payout-bill-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .payout-bill-actions .button {
+        width: 100%;
+    }
+
+    .payout-bill-card {
+        grid-template-columns: 34px minmax(0, 1fr);
+        padding: .85rem;
+    }
+
+    .payout-bill-title-row {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .payout-bill-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 480px) {
+    .payout-bill-grid {
+        grid-template-columns: 1fr;
+    }
+}

@@ -11,4 +11,10 @@ public interface IUserRepository
     Task<IReadOnlyList<User>> FindAllActiveAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<User>> SearchActiveAsync(string keyword, int limit = 20, CancellationToken cancellationToken = default);
     Task InsertAsync(User user, CancellationToken cancellationToken = default);
+    Task UpdateAsymmetricKeyAsync(
+        ObjectId userId,
+        string keyId,
+        string publicKeyPem,
+        string privateKeyProtectedPem,
+        CancellationToken cancellationToken = default);
 }

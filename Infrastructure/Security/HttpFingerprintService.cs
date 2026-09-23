@@ -28,9 +28,8 @@ public sealed class HttpFingerprintService
             secChUaMobile,
             secChUaPlatform
         ]);
+        string fingerprint = UserAsymmetricKeyService.ComputeSha256(fingerprintSource);
 
-        var fingerprint = Convert.ToHexString(
-            SHA256.HashData(Encoding.UTF8.GetBytes(fingerprintSource)));
 
         return new UserLoginLog
         {

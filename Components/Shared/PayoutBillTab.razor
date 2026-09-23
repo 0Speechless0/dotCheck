@@ -1,6 +1,8 @@
 @using System.Security.Claims
-@using MongoDB.Bson
-@inject PayoutBillService PayoutBillService
+@using dotCheck.Application.DTOs
+@using dotCheck.Application.Services
+@inject FinanceService financeService
+@inject PayoutBillService payoutBillService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 
@@ -12,11 +14,8 @@
         </div>
 
         <div class="payout-bill-actions">
-            <InputFile OnChange="HandleImportAsync"
-                       accept="text/plain,.txt,application/json,.json" />
-            <button type="button"
-                    class="button primary"
-                    @onclick="DownloadSelected"
+            <InputFile OnChange="HandleImportAsync" accept="text/plain,.txt,application/json,.json" />
+            <button type="button" class="button primary" @onclick="DownloadSelected"
                     disabled="@(_selectedIds.Count == 0 || _loading)">
                 下載選取撥款單
             </button>
@@ -48,8 +47,7 @@
             {
                 <article class="payout-bill-card">
                     <div class="payout-bill-check">
-                        <input type="checkbox"
-                               checked="@_selectedIds.Contains(ObjectId.Parse(bill.Id))"
+                        <input type="checkbox" checked="@_selectedIds.Contains(ObjectId.Parse(bill.Id))"
                                @onchange="e => ToggleSelection(bill.Id, e)" />
                     </div>
 
@@ -115,6 +113,21 @@
                             </div>
                         </details>
                     </div>
+                    <div>
+                        @if (bill.SignatureStatus == PayoutBillSignStatus.Pending)
+                        {
+                            <button type="button" class="btn btn-danger" @onclick="() => SignPayoutBillAsync(bill.Id)">
+                                已收款簽名
+                            </button>
+                        }
+                        else
+                        {
+                            <span class="text-danger">
+                                已完成收款簽名
+                            </span>
+                        }
+
+                    </div>
                 </article>
             }
         </div>
@@ -147,7 +160,7 @@
 
         try
         {
-            var bills = await PayoutBillService.GetUserPayoutBillsAsync(_userId);
+            var bills = await payoutBillService.GetUserPayoutBillsAsync(_userId);
             _bills.Clear();
             _bills.AddRange(bills);
             _selectedIds.RemoveWhere(id => _bills.All(x => x.Id != id.ToString()));
@@ -183,7 +196,23 @@
         var ids = Uri.EscapeDataString(string.Join(',', _selectedIds));
         NavigationManager.NavigateTo($"/payout-bills/export?ids={ids}", forceLoad: true);
     }
+    private async Task SignPayoutBillAsync(string payoutBillId)
+    {
+        try
+        {
+            await payoutBillService.SignPayoutBillAsync(
+               ObjectId.Parse(payoutBillId),
+               _userId);
 
+            await LoadAsync();
+
+            _message = "已完成收款簽名。";
+        }
+        catch (Exception ex)
+        {
+            _message = $"簽名失敗：{ex.Message}";
+        }
+    }
     private async Task HandleImportAsync(InputFileChangeEventArgs args)
     {
         _message = null;
@@ -191,7 +220,7 @@
 
         try
         {
-            var count = await PayoutBillService.ImportAsync(_userId, args.File);
+            var count = await payoutBillService.ImportAsync(_userId, args.File);
             _message = $"成功匯入 {count} 張撥款單。";
             await LoadAsync();
         }

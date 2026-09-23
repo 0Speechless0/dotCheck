@@ -50,6 +50,7 @@ builder.Services.AddScoped<SettlementService>();
 builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<ReceiptService>();
 builder.Services.AddScoped<InvoiceFileService>();
+builder.Services.AddScoped<FinanceService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IItemRepository, ItemRepository>();
 builder.Services.AddScoped<IReasonRepository, ReasonRepository>();

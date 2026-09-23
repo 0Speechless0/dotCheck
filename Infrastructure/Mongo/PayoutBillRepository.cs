@@ -47,4 +47,13 @@ public sealed class PayoutBillRepository(MongoDbContext context) : IPayoutBillRe
         context.PayoutBills.Find(x => x.Signature == signature)
             .Limit(1)
             .AnyAsync(cancellationToken);
+
+    public async Task UpdateAsync(PayoutBill bill, CancellationToken cancellationToken = default)
+    {
+        await context.PayoutBills.ReplaceOneAsync(
+            x => x.Id == bill.Id,
+            bill,
+            cancellationToken: cancellationToken);
+    }
+
 }
