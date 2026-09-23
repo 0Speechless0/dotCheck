@@ -39,7 +39,7 @@ public sealed class PayoutBill
     [BsonElement("createdAt")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    [BsonElement("createdAt")]
+    [BsonElement("signedAt")]
     public DateTime? SignedAt { get; set; }
 
     [BsonElement("keyId")]

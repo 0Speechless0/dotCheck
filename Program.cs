@@ -43,11 +43,14 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddSingleton<MongoDbContext>();
 builder.Services.AddSingleton<PasswordService>();
 builder.Services.AddSingleton<ReceiptCryptoService>();
+builder.Services.AddSingleton<HttpFingerprintService>();
+builder.Services.AddSingleton<UserAsymmetricKeyService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<ItemService>();
 builder.Services.AddScoped<ApprovalService>();
 builder.Services.AddScoped<SettlementService>();
 builder.Services.AddScoped<PaymentService>();
+builder.Services.AddScoped<PayoutBillService>();
 builder.Services.AddScoped<ReceiptService>();
 builder.Services.AddScoped<InvoiceFileService>();
 builder.Services.AddScoped<FinanceService>();
@@ -56,6 +59,7 @@ builder.Services.AddScoped<IItemRepository, ItemRepository>();
 builder.Services.AddScoped<IReasonRepository, ReasonRepository>();
 builder.Services.AddScoped<IPaymentBillRepository, PaymentBillRepository>();
 builder.Services.AddScoped<IReceiptRepository, ReceiptRepository>();
+builder.Services.AddScoped<IPayoutBillRepository, PayoutBillRepository>();
 
 var app = builder.Build();
 

@@ -49,4 +49,8 @@ public sealed class UserRepository(MongoDbContext context) : IUserRepository
             .ToListAsync(cancellationToken);
     }
 
+    public Task UpdateAsymmetricKeyAsync(ObjectId userId, string keyId, string publicKeyPem, string privateKeyProtectedPem, CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
 }

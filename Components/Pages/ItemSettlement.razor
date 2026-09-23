@@ -3,6 +3,7 @@
 @attribute [Authorize(Roles = "Admin")]
 @rendermode InteractiveServer
 @inject PaymentService PaymentService
+@inject FinanceService FinanceService
 @inject ReceiptService ReceiptService
 @inject IUserRepository UserRepository
 @inject IItemRepository ItemRepository
@@ -304,7 +305,7 @@
         _error = null;
         try
         {
-            var (bill, settledCount) = await PaymentService.CreatePaymentBillAsync();
+            var (bill, payouts, settledCount) = await FinanceService.SettleMoney();
             _message = $"繳費單 {bill.Id} 已建立，涵蓋 {bill.ItemIds.Count} 個項目、總金額 {bill.TotalAmount:N2}，已更新 {settledCount}/{bill.ItemIds.Count} 筆項目為已結清。";
             await LoadConfirmedAsync();
         }

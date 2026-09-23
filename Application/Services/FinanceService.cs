@@ -47,8 +47,8 @@ public class FinanceService(
             .GroupBy(x => x.PayableAmount > 0 ? "Pay" : "Receive")
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        var bill = await paymentService.CreatePaymentBillAsync(confirmedItems.ToList(), userGroups["Pay"], totalAmount, cancellationToken);
-        var payoutBills = await payoutBillService.CreatePayoutBillAsync(bill, confirmedItems.ToList(), userGroups["Receive"], totalAmount, cancellationToken);
+        PaymentBill bill = await paymentService.CreatePaymentBillAsync(confirmedItems.ToList(), userGroups["Pay"], totalAmount, cancellationToken);
+        List<PayoutBill> payoutBills = await payoutBillService.CreatePayoutBillAsync(bill, confirmedItems.ToList(), userGroups["Receive"], totalAmount, cancellationToken);
         return (bill, payoutBills, confirmedItems.Count);
     }
 }
