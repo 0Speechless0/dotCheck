@@ -389,17 +389,21 @@ public sealed class PayoutBillService(
         }
 
         // 固定欄位順序產生簽名內容
-        var payload = new PayoutBillPayload
-        {
-            PayoutBillId = payoutBill.Id.ToString(),
-            UserId = payoutBill.UserId.ToString(),
-            
-            ItemIds = payoutBill.ItemIds.OrderBy(x => x),
-            StartDate =  payoutBill.StartDate,
-            EndDate  = payoutBill.EndDate,
-            payoutBill.ItemTotalAmount,
-            payoutBill.PayoutAmount
-        };
+            var createdAt = DateTime.UtcNow;
+
+            var payload = new PayoutBillPayload
+            {
+                PayoutBillId = payoutBillId.ToString(),
+                PaymentBillId = payoutBill.PayloadHash.ToString(),
+                UserId = userId.ToString(),
+                ItemIds = payoutBill.ItemIds.Select(x => x.ToString()).ToArray(),
+                StartDate = payoutBill.StartDate.ToString("O", CultureInfo.InvariantCulture),
+                EndDate = payoutBill.EndDate.ToString("O", CultureInfo.InvariantCulture),
+                ItemTotalAmount = payoutBill.ItemTotalAmount,
+                TotalUserCount = payoutBill.TotalUserCount,
+                PayoutAmount =  payoutBill.PayoutAmount,
+                CreatedAt = createdAt.ToString("O", CultureInfo.InvariantCulture)
+            };
 
         var payloadJson = JsonSerializer.Serialize(
             payload,
