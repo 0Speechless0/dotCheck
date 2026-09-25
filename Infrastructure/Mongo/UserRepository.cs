@@ -1,8 +1,8 @@
+using System.Text.RegularExpressions;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using dotCheck.Application.Interfaces;
 using dotCheck.Domain.Entities;
-using System.Text.RegularExpressions;
 
 namespace dotCheck.Infrastructure.Mongo;
 
@@ -16,9 +16,6 @@ public sealed class UserRepository(MongoDbContext context) : IUserRepository
 
     public Task<long> CountActiveAsync(CancellationToken cancellationToken = default) =>
         context.Users.CountDocumentsAsync(x => x.IsActive, cancellationToken: cancellationToken);
-
-    public Task InsertAsync(User user, CancellationToken cancellationToken = default) =>
-        context.Users.InsertOneAsync(user, cancellationToken: cancellationToken);
 
     public async Task<IReadOnlyList<User>> FindAllActiveAsync(CancellationToken cancellationToken = default) =>
         await context.Users.Find(x => x.IsActive)
@@ -49,8 +46,29 @@ public sealed class UserRepository(MongoDbContext context) : IUserRepository
             .ToListAsync(cancellationToken);
     }
 
-    public Task UpdateAsymmetricKeyAsync(ObjectId userId, string keyId, string publicKeyPem, string privateKeyProtectedPem, CancellationToken cancellationToken = default)
+    public Task InsertAsync(User user, CancellationToken cancellationToken = default) =>
+        context.Users.InsertOneAsync(user, cancellationToken: cancellationToken);
+
+    public Task UpdateAsymmetricKeyAsync(
+        ObjectId userId,
+        string keyId,
+        string publicKeyPem,
+        string privateKeyProtectedPem,
+        CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        var update = Builders<User>.Update
+            .Set(x => x.AsymmetricKeyId, keyId)
+            .Set(x => x.PublicKeyPem, publicKeyPem)
+            .Set(x => x.PrivateKeyProtectedPem, privateKeyProtectedPem);
+
+        return UpdateAsync();
+
+        async Task UpdateAsync()
+        {
+            await context.Users.UpdateOneAsync(
+                x => x.Id == userId,
+                update,
+                cancellationToken: cancellationToken);
+        }
     }
 }

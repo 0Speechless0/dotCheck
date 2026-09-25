@@ -20,7 +20,7 @@
 
     <div class="query-tabs">
         <button class="tab @(_activeTab == 2 ? "active" : "")" @onclick="ShowItemUnconfirmed">認結項目</button>
-        <button class="tab @(_activeTab == 0 ? "active" : "")" @onclick="ShowBillGeneration">生成繳費單</button>
+        <button class="tab @(_activeTab == 0 ? "active" : "")" @onclick="ShowBillGeneration">結清</button>
         <button class="tab @(_activeTab == 1 ? "active" : "")" @onclick="ShowReceiptIssue">收據開立</button>
 
     </div>
@@ -106,7 +106,7 @@
                     </div>
                     <div class="form-actions sticky-actions">
                         <button class="button primary" @onclick="GeneratePaymentBillAsync" disabled="@_generating">
-                            @(_generating ? "生成中…" : "生成項目繳費單")
+                            @(_generating ? "生成中…" : "結清項目")
                         </button>
                     </div>
                 </div>
@@ -305,8 +305,8 @@
         _error = null;
         try
         {
-            var (bill, payouts, settledCount) = await FinanceService.SettleMoney();
-            _message = $"繳費單 {bill.Id} 已建立，涵蓋 {bill.ItemIds.Count} 個項目、總金額 {bill.TotalAmount:N2}，已更新 {settledCount}/{bill.ItemIds.Count} 筆項目為已結清。";
+            var (bill, payouts, settledCount) = await FinanceService.SettleMoney(_confirmedItems);
+            _message = $"繳費單 {bill.Id} 已建立， \n 撥款單建立{payouts.Count}張，涵蓋 {bill.ItemIds.Count} 個項目、總金額 {bill.TotalAmount:N2}，已更新 {settledCount}/{bill.ItemIds.Count} 筆項目為已結清。";
             await LoadConfirmedAsync();
         }
         catch (Exception ex)

@@ -5,9 +5,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
+
+    <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="css/app.css" />
-    <link rel="stylesheet" href="css/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="css/lib/bootstrap/dist/js/bootstrap.bundle.min.js" />
     <link rel="stylesheet" href="dotCheck.styles.css" />
     <HeadOutlet />
 </head>
@@ -16,6 +16,9 @@
     <CascadingAuthenticationState>
         <Routes @rendermode="InteractiveServer" />
     </CascadingAuthenticationState>
+    <!-- 2. 引入本機的 Bootstrap JS (必須在 blazor 腳本之前) -->
+    <script src="lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+        <!-- 你的路由或元件 --> 
     <script src="_framework/blazor.web.js"></script>
 </body>
 

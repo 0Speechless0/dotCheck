@@ -21,4 +21,5 @@ public sealed class PaymentBillDto(
     public decimal PayableAmount => UserPayer?.PayableAmount ?? 0m;
 
     public bool PaidReceiptExists { get; init; }
+
 }

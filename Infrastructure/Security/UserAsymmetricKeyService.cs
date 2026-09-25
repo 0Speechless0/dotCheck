@@ -16,8 +16,8 @@ public sealed class UserAsymmetricKeyService(IDataProtectionProvider protectionP
     public UserKeyPair GenerateKeyPair()
     {
         using var rsa = RSA.Create(3072);
-        var publicKey = rsa.ExportSubjectPublicKeyInfoPem();
-        var privateKey = rsa.ExportPkcs8PrivateKeyPem();
+        var publicKey = rsa.ExportRSAPublicKeyPem();
+        var privateKey = rsa.ExportRSAPrivateKeyPem();
 
         return new UserKeyPair(
             Guid.NewGuid().ToString("N"),

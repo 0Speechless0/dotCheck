@@ -1,3 +1,4 @@
+using dotCheck.Application.Interfaces;
 using dotCheck.Domain.Entities;
 using dotCheck.Domain.Enums;
 using dotCheck.Infrastructure.Mongo;
@@ -6,6 +7,7 @@ namespace dotCheck.Application.Services;
 
 public class FinanceService(
     ItemService itemService,
+    IUserRepository userRepository,
     PaymentService paymentService,
     PayoutBillService payoutBillService
 )
@@ -13,9 +15,9 @@ public class FinanceService(
 
 
     public async Task<(PaymentBill Bill, List<PayoutBill> PayoutBills, int SettledCount)> SettleMoney(
+         IReadOnlyList<CheckItem> confirmedItems,
         CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<CheckItem> confirmedItems = await itemService.GetConfirmedItemsAsync();
         if (confirmedItems == null)
             throw new ArgumentNullException(nameof(confirmedItems));
 
@@ -23,7 +25,7 @@ public class FinanceService(
             throw new InvalidOperationException("目前沒有可生成繳費單的已認結項目。");
 
 
-        var allUserIds = confirmedItems.Select(x => x.OwnerUserId).Distinct().ToList();
+        var allUserIds = (await userRepository.FindAllActiveAsync()).Select(r => r.Id).ToList();
         if (allUserIds.Count == 0)
             throw new InvalidOperationException("目前沒有可用的系統使用者。");
 
@@ -40,13 +42,16 @@ public class FinanceService(
                 PayableAmount =
                 (
                     totalAmount - ownerAmounts.GetValueOrDefault(userId)
-                    - ownerAmounts.GetValueOrDefault(userId) * (allUserIds.Count - 1)
-                ) / allUserIds.Count
+                    - ownerAmounts.GetValueOrDefault(userId) * (decimal)(allUserIds.Count - 1)
+                ) / (decimal)allUserIds.Count
             })
             .Where(x => x.PayableAmount != 0)
             .GroupBy(x => x.PayableAmount > 0 ? "Pay" : "Receive")
             .ToDictionary(g => g.Key, g => g.ToList());
-
+        if(!userGroups.ContainsKey("Pay") || !userGroups.ContainsKey("Receive"))
+        {
+            throw new Exception("目前不需要生成撥款單和繳費單");
+        }
         PaymentBill bill = await paymentService.CreatePaymentBillAsync(confirmedItems.ToList(), userGroups["Pay"], totalAmount, cancellationToken);
         List<PayoutBill> payoutBills = await payoutBillService.CreatePayoutBillAsync(bill, confirmedItems.ToList(), userGroups["Receive"], totalAmount, cancellationToken);
         return (bill, payoutBills, confirmedItems.Count);

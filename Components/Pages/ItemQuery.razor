@@ -23,8 +23,10 @@
     <div class="query-tabs">
         <button class="tab @(_activeTab == 0 ? "active" : "")" @onclick="ShowItemTab">項目查詢</button>
         <button class="tab @(_activeTab == 1 ? "active" : "")" @onclick="ShowPaymentTabAsync">繳費單</button>
+                <button class="tab @(_activeTab == 4 ? "active" : "")" @onclick="ShowPayoutTab">撥款單</button>
         <button class="tab @(_activeTab == 2 ? "active" : "")" @onclick="ShowReceiptTabAsync">收據</button>
         <button class="tab @(_activeTab == 3 ? "active" : "")" @onclick="ShowReasonTabAsync">未認結理由</button>
+
     </div>
 
     @if (!string.IsNullOrWhiteSpace(_message))
@@ -154,11 +156,19 @@
     else if (_activeTab == 2)
         {
             <section>
-                <div class="form-actions">
-                    <InputFile OnChange="HandleReceiptImport" accept="text/plain,.txt,application/json,.json" />
-                    <button class="button primary" @onclick="DownloadSelectedReceipts"
+                <div class="payout-bill-toolbar">
+                    <div>
+                        <h2>撥款單</h2>
+                        <p class="muted">顯示目前登入使用者的撥款單，可匯出或匯入簽章檔案。</p>
+                    </div>
+
+                    <div class="payout-bill-actions">
+                        <InputFile OnChange="HandleReceiptImport" accept="text/plain,.txt,application/json,.json" />
+                        <button class="button primary" @onclick="DownloadSelectedReceipts"
                             disabled="@(_selectedReceiptIds.Count == 0)">下載選取收據</button>
+                    </div>
                 </div>
+
                 <div class="muted" style="margin-bottom: 1rem;">匯入時會驗證 RSA-PSS-SHA256 數位簽章、使用者、繳費單金額及重複性。</div>
 
                 @if (_receiptLoading)
@@ -206,6 +216,10 @@
                     }
                 </section>
             }
+    else if (_activeTab == 4)
+    {
+        <PayoutBillTab />
+    }
     else
             {
                 <section>
@@ -511,4 +525,12 @@
         _showPaymentBillDetail = true;
         return Task.CompletedTask;
     }
+
+    private void ShowPayoutTab()
+    {
+        _activeTab = 4;
+        _message = null;
+        _error = null;
+    }
+
 }

@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
@@ -14,6 +14,7 @@ using dotCheck.Application.Interfaces;
 using Microsoft.AspNetCore.Http.HttpResults;
 using dotCheck.Infrastructure.Security;
 using System.Text;
+using MongoDB.Driver.Linq;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,7 +45,7 @@ builder.Services.AddSingleton<MongoDbContext>();
 builder.Services.AddSingleton<PasswordService>();
 builder.Services.AddSingleton<ReceiptCryptoService>();
 builder.Services.AddSingleton<HttpFingerprintService>();
-builder.Services.AddSingleton<UserAsymmetricKeyService>();
+builder.Services.AddScoped<UserAsymmetricKeyService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<ItemService>();
 builder.Services.AddScoped<ApprovalService>();
@@ -55,6 +56,7 @@ builder.Services.AddScoped<ReceiptService>();
 builder.Services.AddScoped<InvoiceFileService>();
 builder.Services.AddScoped<FinanceService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ILoginLogRepository, LoginLogRepository>();
 builder.Services.AddScoped<IItemRepository, ItemRepository>();
 builder.Services.AddScoped<IReasonRepository, ReasonRepository>();
 builder.Services.AddScoped<IPaymentBillRepository, PaymentBillRepository>();
@@ -91,13 +93,13 @@ app.MapPost("/auth/login", async (HttpContext httpContext, AuthService authServi
 
     if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(password))
     {
-        return Results.Redirect("/login?error=帳號與密碼不可為空");
+        return Results.Redirect($"/?error={Uri.EscapeDataString("帳號與密碼不可為空")}");
     }
 
     var user = await authService.ValidateCredentialsAsync(userName.Trim(), password);
     if (user is null)
     {
-        return Results.Redirect("/login?error=帳號或密碼錯誤");
+        return Results.Redirect($"/?error={Uri.EscapeDataString("帳號或密碼錯誤")}");
     }
 
     var claims = new List<Claim>
@@ -128,18 +130,18 @@ app.MapPost("/auth/register", async (HttpContext httpContext, AuthService authSe
 
     if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(password))
     {
-        return Results.Redirect("/login?registerError=帳號與密碼不可為空");
+        return Results.Redirect("/?registerError=帳號與密碼不可為空");
     }
 
     if (password.Length < 6)
     {
-        return Results.Redirect("/login?registerError=密碼至少需要6碼");
+        return Results.Redirect("/?registerError=密碼至少需要6碼");
     }
 
     var result = await authService.RegisterAsync(userName.Trim(), password);
     if (!result.Success)
     {
-        return Results.Redirect($"/login?registerError={Uri.EscapeDataString(result.ErrorMessage ?? "註冊失敗")}");
+        return Results.Redirect($"/?registerError={Uri.EscapeDataString(result.ErrorMessage ?? "註冊失敗")}");
     }
 
     var user = result.User!;
@@ -227,7 +229,75 @@ app.MapGet("/receipts/export", async (
         "text/plain; charset=utf-8",
         $"dotCheck-receipts-{DateTime.Now:yyyyMMddHHmmss}.txt");
 }).RequireAuthorization();
+
+app.MapGet("/payout/export", async (
+    HttpContext httpContext,
+    string? ids,
+    ReceiptService receiptService) =>
+{
+    if (!httpContext.User.Identity?.IsAuthenticated ?? true)
+        return Results.Unauthorized();
+
+    if (!ObjectId.TryParse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+        return Results.Unauthorized();
+
+    var objectIds = (ids ?? string.Empty)
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Where(x => ObjectId.TryParse(x, out _))
+        .Select(ObjectId.Parse)
+        .Distinct()
+        .ToArray();
+
+    if (objectIds.Length == 0)
+        return Results.BadRequest("沒有可下載的收據。");
+
+    var text = await receiptService.ExportTextAsync(userId, objectIds);
+    var bytes = Encoding.UTF8.GetBytes(text);
+    return Results.File(
+        bytes,
+        "text/plain; charset=utf-8",
+        $"dotCheck-receipts-{DateTime.Now:yyyyMMddHHmmss}.txt");
+}).RequireAuthorization();
+
+app.MapGet("/payout-bills/export", async (
+    HttpContext httpContext,
+    string? id,
+    PayoutBillService payoutBillService,
+    CancellationToken cancellationToken) =>
+{
+    // 必須登入
+    if (!(httpContext.User.Identity?.IsAuthenticated ?? false))
+    {
+        return Results.Unauthorized();
+    }
+
+    // 取得目前登入使用者 UserId
+    var userIdValue =
+        httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+    if (!ObjectId.TryParse(userIdValue, out var userId))
+    {
+        return Results.Unauthorized();
+    }
+
+    // Service 會再依目前 UserId 篩選，
+    // 因此不能下載其他使用者的撥款單。
+    var text = await payoutBillService.ExportTextAsync(
+        userId,
+        new List<ObjectId>{ObjectId.Parse(id) },
+        cancellationToken);
+
+    var bytes = Encoding.UTF8.GetBytes(text);
+
+    return Results.File(
+        bytes,
+        "text/plain; charset=utf-8",
+        $"dotCheck-payout-bills-{DateTime.Now:yyyyMMddHHmmss}.txt");
+})
+.RequireAuthorization();
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-app.Run();
+
+    app.Run();

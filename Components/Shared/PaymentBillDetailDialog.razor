@@ -165,8 +165,7 @@
         if (IsOpen && PaymentBill?.ItemIds?.Any() == true)
         {
             _items = await ItemRepository.FindByIdsAsync(PaymentBill.ItemIds);
-            _items = _items.Concat(await ItemRepository.FindByIdsAsync(PaymentBill.ItemIds));
-            _items = _items.Concat(await ItemRepository.FindByIdsAsync(PaymentBill.ItemIds));
+
         }
 
     }

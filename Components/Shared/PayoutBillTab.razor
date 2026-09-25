@@ -1,7 +1,8 @@
 @using System.Security.Claims
 @using dotCheck.Application.DTOs
 @using dotCheck.Application.Services
-@inject FinanceService financeService
+@using dotCheck.Infrastructure.Mongo
+@inject IPaymentBillRepository paymentBillRepo
 @inject PayoutBillService payoutBillService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
@@ -15,10 +16,7 @@
 
         <div class="payout-bill-actions">
             <InputFile OnChange="HandleImportAsync" accept="text/plain,.txt,application/json,.json" />
-            <button type="button" class="button primary" @onclick="DownloadSelected"
-                    disabled="@(_selectedIds.Count == 0 || _loading)">
-                下載選取撥款單
-            </button>
+
         </div>
     </div>
 
@@ -46,11 +44,7 @@
             @foreach (var bill in _bills)
             {
                 <article class="payout-bill-card">
-                    <div class="payout-bill-check">
-                        <input type="checkbox" checked="@_selectedIds.Contains(ObjectId.Parse(bill.Id))"
-                               @onchange="e => ToggleSelection(bill.Id, e)" />
-                    </div>
-
+                    <div></div>
                     <div class="payout-bill-main">
                         <div class="payout-bill-title-row">
                             <strong>撥款單 @bill.Id</strong>
@@ -69,7 +63,14 @@
 
                             <div>
                                 <span>項目數</span>
-                                <strong>@bill.ItemCount</strong>
+                                <div class="d-flex">
+                                    <strong class="me-auto">
+                                        @bill.ItemCount
+                                    </strong>
+                                    <button class="button" @onclick="() => ShowPaymentBillDetail(bill.PaymentBillId)">
+                                        明細
+                                    </button>
+                                </div>
                             </div>
 
                             <div>
@@ -94,44 +95,55 @@
                                 <strong>@bill.TotalUserCount</strong>
                             </div>
                         </div>
+                        <div class="text-end">
+                            @if (bill.SignatureStatus == PayoutBillSignStatus.Pending)
+                            {
+                                <button type="button" class="btn btn-danger" @onclick="() => SignPayoutBillAsync(bill.Id)">
+                                    已收款簽名
+                                </button>
+                            }
+                            else
+                            {
+                                <button type="button" class="button primary me-2" @onclick="() => DownloadSelected(bill.Id)"
+                                      >
+                                    下載
+                                </button>
+                                <details class="border rounded p-3 mt-3">
+                                    <summary class="fw-semibold text-secondary">
+                                        已完成簽名
+                                    </summary>
 
-                        <details class="payout-bill-signature-detail">
-                            <summary>查看簽章資訊</summary>
-                            <div class="payout-bill-signature-content">
-                                <div>
-                                    <span>Key ID</span>
-                                    <code>@bill.KeyId</code>
-                                </div>
-                                <div>
-                                    <span>Hash</span>
-                                    <code>@bill.PayloadHash</code>
-                                </div>
-                                <div>
-                                    <span>Signature</span>
-                                    <textarea class="payout-code" rows="4" readonly>@bill.Signature</textarea>
-                                </div>
-                            </div>
-                        </details>
-                    </div>
-                    <div>
-                        @if (bill.SignatureStatus == PayoutBillSignStatus.Pending)
-                        {
-                            <button type="button" class="btn btn-danger" @onclick="() => SignPayoutBillAsync(bill.Id)">
-                                已收款簽名
-                            </button>
-                        }
-                        else
-                        {
-                            <span class="text-danger">
-                                已完成收款簽名
-                            </span>
-                        }
+
+
+                                    <div class="text-start mt-3">
+                                        <div class="mb-3">
+                                            <div class="text-muted small mb-1">Key ID</div>
+                                            <code class="font-monospace">@bill.KeyId</code>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <div class="text-muted small mb-1">Hash</div>
+                                            <code class="font-monospace text-break">@bill.PayloadHash</code>
+                                        </div>
+
+                                        <div>
+                                            <div class="text-muted small mb-1">Signature</div>
+                                            <textarea class="form-control font-monospace" rows="4"
+                                                      readonly>@bill.Signature</textarea>
+                                        </div>
+                                    </div>
+                                </details>
+                            }
+
+                        </div>
 
                     </div>
+
                 </article>
             }
         </div>
     }
+    <PaymentBillDetailDialog @bind-IsOpen="@_showPaymentBillDetail" PaymentBill="@_selectedPaymentBill" />
 </div>
 
 @code {
@@ -142,6 +154,8 @@
     private bool _loading = true;
     private string? _message;
     private string? _error;
+    private bool _showPaymentBillDetail;
+    private PaymentBillDto _selectedPaymentBill;
 
     protected override async Task OnInitializedAsync()
     {
@@ -188,13 +202,9 @@
             _selectedIds.Remove(objectId);
     }
 
-    private void DownloadSelected()
+    private void DownloadSelected(string payoutId)
     {
-        if (_selectedIds.Count == 0)
-            return;
-
-        var ids = Uri.EscapeDataString(string.Join(',', _selectedIds));
-        NavigationManager.NavigateTo($"/payout-bills/export?ids={ids}", forceLoad: true);
+        NavigationManager.NavigateTo($"/payout-bills/export?id={payoutId}", forceLoad: true);
     }
     private async Task SignPayoutBillAsync(string payoutBillId)
     {
@@ -228,5 +238,13 @@
         {
             _error = ex.Message;
         }
+    }
+
+    private async Task ShowPaymentBillDetail(string paymentBillId)
+    {
+        var bill = await paymentBillRepo.FindByIdAsync(ObjectId.Parse(paymentBillId));
+        _showPaymentBillDetail = true;
+        if (bill is PaymentBill _bill)
+            _selectedPaymentBill = new PaymentBillDto(_bill, _userId, 0);
     }
 }

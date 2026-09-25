@@ -311,9 +311,8 @@ public sealed class PayoutBillService(
         foreach (var payer in payers)
         {
 
-            var payoutAmount = (-payer.PayableAmount) * (allUserCount - 1);
 
-            if (payoutAmount >= 0)
+            if (payer.PayableAmount > 0)
                 continue;
 
             if (await payoutBillRepository.ExistsByPaymentBillAndUserAsync(
@@ -341,7 +340,7 @@ public sealed class PayoutBillService(
                 EndDate = endDate,
                 ItemTotalAmount = totalAmount,
                 TotalUserCount = allUserCount,
-                PayoutAmount = payoutAmount,
+                PayoutAmount = -payer.PayableAmount,
                 CreatedAt = createdAt,
                 SignatureAlgorithm = UserAsymmetricKeyService.SignatureAlgorithm,
                 VerificationMethod = "使用該使用者註冊之公鑰驗證 Payload SHA-256 的 RSA-PSS-SHA256 數位簽章。",
@@ -350,6 +349,7 @@ public sealed class PayoutBillService(
             });
 
         }
+        await payoutBillRepository.InsertManyAsync(result);
         return result;
 
     }
@@ -389,13 +389,14 @@ public sealed class PayoutBillService(
         }
 
         // 固定欄位順序產生簽名內容
-        var payload = new
+        var payload = new PayoutBillPayload
         {
-            payoutBill.Id,
-            payoutBill.UserId,
+            PayoutBillId = payoutBill.Id.ToString(),
+            UserId = payoutBill.UserId.ToString(),
+            
             ItemIds = payoutBill.ItemIds.OrderBy(x => x),
-            payoutBill.StartDate,
-            payoutBill.EndDate,
+            StartDate =  payoutBill.StartDate,
+            EndDate  = payoutBill.EndDate,
             payoutBill.ItemTotalAmount,
             payoutBill.PayoutAmount
         };
@@ -417,6 +418,7 @@ public sealed class PayoutBillService(
             singntureUser,
             payloadHash);
 
+        
         payoutBill.PayloadHash = payloadHash;
 
         payoutBill.Signature = signature;
@@ -429,6 +431,11 @@ public sealed class PayoutBillService(
 
         payoutBill.SignatureStatus =
             PayoutBillSignStatus.ReceivedSigned;
+        
+
+        payoutBill.Payload = payloadJson;
+        payoutBill.KeyId = singntureUser.AsymmetricKeyId;
+        payoutBill.PublicKey = singntureUser.PublicKeyPem;
 
         await payoutBillRepository.UpdateAsync(
             payoutBill);
