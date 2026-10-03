@@ -29,15 +29,15 @@
                         <div>
                             <span class="label">項目總金額：</span>
                             <strong>
-                                @PaymentBill.TotalAmount
+                                @PaymentBill.TotalAmount.ToString("C0")
                             </strong>
                         </div>
-                        <div>
+                        @* <div>
                             <span class="label">每人平攤金額：</span>
                             <strong>
-                                @(PaymentBill.TotalAmount / PaymentBill.PayerCount)
+                                @((PaymentBill.TotalAmount / PaymentBill.PayerCount).ToString("C0"))
                             </strong>
-                        </div>
+                        </div> *@
                     </div>
                 </div>
 
