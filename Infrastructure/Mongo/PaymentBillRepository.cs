@@ -37,4 +37,20 @@ public sealed class PaymentBillRepository(MongoDbContext context) : IPaymentBill
         var filter = Builders<PaymentBill>.Filter.AnyIn(x => x.ItemIds, ids);
         return await context.PaymentBills.Find(filter).Limit(1).AnyAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<PaymentBill>> FindByUserWithDateRangeAsync(ObjectId userId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default)
+    {
+        var filter = Builders<PaymentBill>.Filter.ElemMatch(
+            x => x.Payers,
+            payer => payer.UserId == userId) &
+        Builders<PaymentBill>.Filter.Gte(x => x.StartDate, startDate) &
+        Builders<PaymentBill>.Filter.Lte(x => x.EndDate, endDate);
+
+        return await context.PaymentBills.Find(filter)
+            .SortByDescending(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
+
+
 }

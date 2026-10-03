@@ -44,9 +44,20 @@ public sealed class PaymentService(
 
     public async Task<IReadOnlyList<PaymentBillDto>> GetUserPaymentBillsAsync(
         ObjectId userId,
+        DateTime? startDate = null,
+        DateTime? endDate = null,
         CancellationToken cancellationToken = default)
     {
-        var bills = await paymentBillRepository.FindByUserAsync(userId, cancellationToken);
+        IReadOnlyList<PaymentBill> bills;
+        if (startDate == null && endDate == null)
+            bills = await paymentBillRepository.FindByUserAsync(userId, cancellationToken);
+        else if (startDate == null || endDate == null)
+            throw new ArgumentException("Start date and end date must be provided together.");
+        else
+        {
+            bills = await paymentBillRepository.FindByUserWithDateRangeAsync(userId, startDate.Value, endDate.Value, cancellationToken);
+        }
+
         var result = new List<PaymentBillDto>(bills.Count);
 
         foreach (var bill in bills)

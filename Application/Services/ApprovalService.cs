@@ -48,6 +48,7 @@ public sealed class ApprovalService(
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 }, cancellationToken);
+                await itemRepository.SetStatusAsync(itemId, ItemStatus.Pending, ItemStatus.Rejected, cancellationToken);
             }
         }
 

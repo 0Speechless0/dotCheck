@@ -12,4 +12,6 @@ public interface IReceiptRepository
     Task<Receipt?> FindByPaymentBillAndUserAsync(ObjectId paymentBillId, ObjectId userId, CancellationToken cancellationToken = default);
     Task<bool> ExistsBySignatureAsync(string signature, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Receipt>> FindByIdsAndUserAsync(IEnumerable<ObjectId> ids, ObjectId userId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Receipt>> FindByUserAndDateRangeAsync(ObjectId userId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken);
+
 }

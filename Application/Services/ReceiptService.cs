@@ -27,9 +27,11 @@ public sealed class ReceiptService(
 
     public async Task<IReadOnlyList<ReceiptDto>> GetUserReceiptsAsync(
         ObjectId userId,
+        DateTime startDate,
+        DateTime endDate,
         CancellationToken cancellationToken = default)
     {
-        var receipts = await receiptRepository.FindByUserAsync(userId, cancellationToken);
+        var receipts = await receiptRepository.FindByUserAndDateRangeAsync(userId, startDate, endDate, cancellationToken);
         return receipts.Select(x => new ReceiptDto(x)).ToList();
     }
 

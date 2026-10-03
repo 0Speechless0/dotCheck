@@ -283,8 +283,7 @@ app.MapGet("/payout-bills/export", async (
     // Service 會再依目前 UserId 篩選，
     // 因此不能下載其他使用者的撥款單。
     var text = await payoutBillService.ExportTextAsync(
-        userId,
-        new List<ObjectId>{ObjectId.Parse(id) },
+        ObjectId.Parse(id),
         cancellationToken);
 
     var bytes = Encoding.UTF8.GetBytes(text);
@@ -300,4 +299,4 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 
-    app.Run();
+app.Run();

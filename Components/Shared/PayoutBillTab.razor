@@ -34,114 +34,126 @@
     {
         <Loading />
     }
-    else if (_bills.Count == 0)
-    {
-        <div class="notice">目前沒有可提領的撥款單。</div>
-    }
     else
     {
-        <div class="payout-bill-list">
-            @foreach (var bill in _bills)
-            {
-                <article class="payout-bill-card">
-                    <div></div>
-                    <div class="payout-bill-main">
-                        <div class="payout-bill-title-row">
-                            <strong>撥款單 @bill.Id</strong>
-                            <span class="status confirmed">已簽章</span>
-                        </div>
-
-                        <div class="payout-bill-grid">
-                            <div>
-                                <span>項目涵蓋時間</span>
-                                <strong>
-                                    @bill.StartDate.ToLocalTime().ToString("yyyy-MM-dd")
-                                    ~
-                                    @bill.EndDate.ToLocalTime().ToString("yyyy-MM-dd")
-                                </strong>
+        
+        <div class="filter-card">
+            <div>
+                <label>時間範圍</label>
+                <input type="date" class="input mt-2" @bind="_filterStartDate" />
+                <input type="date" class="input mt-2" @bind="_filterEndDate" />
+            </div>
+            <button class="button primary" @onclick="LoadAsync">查詢</button>
+        </div>
+        if (_bills.Count == 0)
+        {
+            <div class="notice">前間內沒有撥款單。</div>
+        }
+        else
+        {
+            <div class="payout-bill-list">
+                @foreach (var bill in _bills)
+                {
+                    <article class="payout-bill-card">
+                        <div></div>
+                        <div class="payout-bill-main">
+                            <div class="payout-bill-title-row">
+                                <strong>撥款單 @bill.Id</strong>
+                                <span class="status confirmed">已簽章</span>
                             </div>
 
-                            <div>
-                                <span>項目數</span>
-                                <div class="d-flex">
-                                    <strong class="me-auto">
-                                        @bill.ItemCount
+                            <div class="payout-bill-grid">
+                                <div>
+                                    <span>項目涵蓋時間</span>
+                                    <strong>
+                                        @bill.StartDate.ToLocalTime().ToString("yyyy-MM-dd")
+                                        ~
+                                        @bill.EndDate.ToLocalTime().ToString("yyyy-MM-dd")
                                     </strong>
-                                    <button class="button" @onclick="() => ShowPaymentBillDetail(bill.PaymentBillId)">
-                                        明細
-                                    </button>
+                                </div>
+
+                                <div>
+                                    <span>項目數</span>
+                                    <div class="d-flex">
+                                        <strong class="me-auto">
+                                            @bill.ItemCount
+                                        </strong>
+                                        <button class="button" @onclick="() => ShowPaymentBillDetail(bill.PaymentBillId)">
+                                            明細
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <span>項目總金額</span>
+                                    <strong>@bill.ItemTotalAmount.ToString("C0")</strong>
+                                </div>
+
+                                <div>
+                                    <span>可撥金額</span>
+                                    <strong class="money">@bill.PayoutAmount.ToString("C0")</strong>
+                                </div>
+
+                                <div>
+                                    <span>建立日期</span>
+                                    <strong>
+                                        @bill.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span>總使用者數</span>
+                                    <strong>@bill.TotalUserCount</strong>
                                 </div>
                             </div>
-
-                            <div>
-                                <span>項目總金額</span>
-                                <strong>@bill.ItemTotalAmount.ToString("N2")</strong>
-                            </div>
-
-                            <div>
-                                <span>可撥金額</span>
-                                <strong class="money">@bill.PayoutAmount.ToString("N2")</strong>
-                            </div>
-
-                            <div>
-                                <span>建立日期</span>
-                                <strong>
-                                    @bill.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
-                                </strong>
-                            </div>
-
-                            <div>
-                                <span>總使用者數</span>
-                                <strong>@bill.TotalUserCount</strong>
-                            </div>
-                        </div>
-                        <div class="text-end">
-                            @if (bill.SignatureStatus == PayoutBillSignStatus.Pending)
-                            {
-                                <button type="button" class="btn btn-danger" @onclick="() => SignPayoutBillAsync(bill.Id)">
-                                    已收款簽名
-                                </button>
-                            }
-                            else
-                            {
-                                <button type="button" class="button primary me-2" @onclick="() => DownloadSelected(bill.Id)"
-                                      >
-                                    下載
-                                </button>
-                                <details class="border rounded p-3 mt-3">
-                                    <summary class="fw-semibold text-secondary">
-                                        已完成簽名
-                                    </summary>
+                            <div class="text-end">
+                                @if (bill.SignatureStatus == PayoutBillSignStatus.Pending)
+                                {
+                                    <button type="button" class="btn btn-danger" @onclick="() => SignPayoutBillAsync(bill.Id)">
+                                        已收款簽名
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button type="button" class="button primary me-2" @onclick="() => DownloadSelected(bill.Id)">
+                                        下載
+                                    </button>
+                                    <details class="border rounded p-3 mt-3">
+                                        <summary class="fw-semibold text-secondary">
+                                            已完成簽名
+                                        </summary>
 
 
 
-                                    <div class="text-start mt-3">
-                                        <div class="mb-3">
-                                            <div class="text-muted small mb-1">Key ID</div>
-                                            <code class="font-monospace">@bill.KeyId</code>
+                                        <div class="text-start mt-3">
+                                            <div class="mb-3">
+                                                <div class="text-muted small mb-1">Key ID</div>
+                                                <code class="font-monospace">@bill.KeyId</code>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <div class="text-muted small mb-1">Hash</div>
+                                                <code class="font-monospace text-break">@bill.PayloadHash</code>
+                                            </div>
+
+                                            <div>
+                                                <div class="text-muted small mb-1">Signature</div>
+                                                <textarea class="form-control font-monospace" rows="4"
+                                                          readonly>@bill.Signature</textarea>
+                                            </div>
                                         </div>
+                                    </details>
+                                }
 
-                                        <div class="mb-3">
-                                            <div class="text-muted small mb-1">Hash</div>
-                                            <code class="font-monospace text-break">@bill.PayloadHash</code>
-                                        </div>
-
-                                        <div>
-                                            <div class="text-muted small mb-1">Signature</div>
-                                            <textarea class="form-control font-monospace" rows="4"
-                                                      readonly>@bill.Signature</textarea>
-                                        </div>
-                                    </div>
-                                </details>
-                            }
+                            </div>
 
                         </div>
 
-                    </div>
+                    </article>
+                }
+            </div>
 
-                </article>
-            }
-        </div>
+        }
     }
     <PaymentBillDetailDialog @bind-IsOpen="@_showPaymentBillDetail" PaymentBill="@_selectedPaymentBill" />
 </div>
@@ -156,6 +168,9 @@
     private string? _error;
     private bool _showPaymentBillDetail;
     private PaymentBillDto _selectedPaymentBill;
+
+    private DateTime _filterStartDate = DateTime.Today.AddMonths(-1);
+    private DateTime _filterEndDate = DateTime.Today;
 
     protected override async Task OnInitializedAsync()
     {
@@ -174,7 +189,7 @@
 
         try
         {
-            var bills = await payoutBillService.GetUserPayoutBillsAsync(_userId);
+            var bills = await payoutBillService.GetUserPayoutBillsAsync(_userId, _filterStartDate, _filterEndDate);
             _bills.Clear();
             _bills.AddRange(bills);
             _selectedIds.RemoveWhere(id => _bills.All(x => x.Id != id.ToString()));
@@ -239,6 +254,7 @@
             _error = ex.Message;
         }
     }
+    
 
     private async Task ShowPaymentBillDetail(string paymentBillId)
     {

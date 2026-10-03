@@ -12,5 +12,5 @@ public interface IPayoutBillRepository
     Task<IReadOnlyList<PayoutBill>> FindByUserAsync(ObjectId userId, CancellationToken cancellationToken = default);
     Task<bool> ExistsByPaymentBillAndUserAsync(ObjectId paymentBillId, ObjectId userId, CancellationToken cancellationToken = default);
     Task<bool> ExistsBySignatureAsync(string signature, CancellationToken cancellationToken = default);
-
+    Task<IEnumerable<PayoutBill>> FindByUserWithDateRangeAsync(ObjectId userId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken);
 }

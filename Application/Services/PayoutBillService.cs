@@ -59,24 +59,22 @@ public sealed class PayoutBillService(
 
     public async Task<IReadOnlyList<PayoutBillDto>> GetUserPayoutBillsAsync(
         ObjectId userId,
+        DateTime startDate,
+        DateTime endDate,
         CancellationToken cancellationToken = default)
     {
-        var bills = await payoutBillRepository.FindByUserAsync(userId, cancellationToken);
+        var bills = await payoutBillRepository.FindByUserWithDateRangeAsync(userId, startDate, endDate, cancellationToken);
         return bills.Select(x => new PayoutBillDto(x)).ToList();
     }
 
     public async Task<string> ExportTextAsync(
-        ObjectId userId,
-        IEnumerable<ObjectId> payoutBillIds,
+        ObjectId payoutBillId,
         CancellationToken cancellationToken = default)
     {
-        var ids = payoutBillIds.Distinct().ToArray();
-        if (ids.Length == 0)
-            return "[]";
 
-        var bills = await payoutBillRepository.FindByUserAsync(userId, cancellationToken);
-        var selected = bills.Where(x => ids.Contains(x.Id)).ToList();
-        return JsonSerializer.Serialize(selected.Select(ToEnvelope), JsonOptions);
+
+        var selected = await payoutBillRepository.FindByIdAsync(payoutBillId, cancellationToken);
+        return JsonSerializer.Serialize(ToEnvelope(selected), JsonOptions);
     }
 
     public async Task<int> ImportAsync(
@@ -189,11 +187,6 @@ public sealed class PayoutBillService(
                 throw new InvalidOperationException("撥款單項目內容與目前系統資料不一致。");
             }
 
-            var expectedPayoutAmount =
-                payload.ItemTotalAmount * (payload.TotalUserCount - 1);
-
-            if (expectedPayoutAmount != payload.PayoutAmount)
-                throw new InvalidOperationException("撥款單可撥金額計算不正確。");
 
             if (await payoutBillRepository.ExistsByPaymentBillAndUserAsync(
                 paymentBillId,
@@ -221,7 +214,8 @@ public sealed class PayoutBillService(
                 VerificationMethod = envelope.VerificationMethod,
                 Payload = envelope.Payload,
                 PayloadHash = envelope.PayloadHash,
-                Signature = envelope.Signature
+                Signature = envelope.Signature,
+                SignatureStatus = PayoutBillSignStatus.ReceivedSigned
             };
 
             try
@@ -389,21 +383,21 @@ public sealed class PayoutBillService(
         }
 
         // 固定欄位順序產生簽名內容
-            var createdAt = DateTime.UtcNow;
+        var createdAt = DateTime.UtcNow;
 
-            var payload = new PayoutBillPayload
-            {
-                PayoutBillId = payoutBillId.ToString(),
-                PaymentBillId = payoutBill.PayloadHash.ToString(),
-                UserId = userId.ToString(),
-                ItemIds = payoutBill.ItemIds.Select(x => x.ToString()).ToArray(),
-                StartDate = payoutBill.StartDate.ToString("O", CultureInfo.InvariantCulture),
-                EndDate = payoutBill.EndDate.ToString("O", CultureInfo.InvariantCulture),
-                ItemTotalAmount = payoutBill.ItemTotalAmount,
-                TotalUserCount = payoutBill.TotalUserCount,
-                PayoutAmount =  payoutBill.PayoutAmount,
-                CreatedAt = createdAt.ToString("O", CultureInfo.InvariantCulture)
-            };
+        var payload = new PayoutBillPayload
+        {
+            PayoutBillId = payoutBillId.ToString(),
+            PaymentBillId = payoutBill.PaymentBillId.ToString(),
+            UserId = userId.ToString(),
+            ItemIds = payoutBill.ItemIds.Select(x => x.ToString()).ToArray(),
+            StartDate = payoutBill.StartDate.ToString("O", CultureInfo.InvariantCulture),
+            EndDate = payoutBill.EndDate.ToString("O", CultureInfo.InvariantCulture),
+            ItemTotalAmount = payoutBill.ItemTotalAmount,
+            TotalUserCount = payoutBill.TotalUserCount,
+            PayoutAmount = payoutBill.PayoutAmount,
+            CreatedAt = createdAt.ToString("O", CultureInfo.InvariantCulture)
+        };
 
         var payloadJson = JsonSerializer.Serialize(
             payload,
@@ -422,7 +416,7 @@ public sealed class PayoutBillService(
             singntureUser,
             payloadHash);
 
-        
+
         payoutBill.PayloadHash = payloadHash;
 
         payoutBill.Signature = signature;
@@ -435,7 +429,7 @@ public sealed class PayoutBillService(
 
         payoutBill.SignatureStatus =
             PayoutBillSignStatus.ReceivedSigned;
-        
+
 
         payoutBill.Payload = payloadJson;
         payoutBill.KeyId = singntureUser.AsymmetricKeyId;

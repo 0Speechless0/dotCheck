@@ -56,4 +56,14 @@ public sealed class PayoutBillRepository(MongoDbContext context) : IPayoutBillRe
             cancellationToken: cancellationToken);
     }
 
+    public async Task<IEnumerable<PayoutBill>> FindByUserWithDateRangeAsync(ObjectId userId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken)
+    {
+        var filter = Builders<PayoutBill>.Filter.Eq(x => x.UserId, userId)
+            & Builders<PayoutBill>.Filter.Gte(x => x.CreatedAt, startDate)
+            & Builders<PayoutBill>.Filter.Lte(x => x.CreatedAt, endDate);
+
+        return await context.PayoutBills.Find(filter)
+            .SortByDescending(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
 }

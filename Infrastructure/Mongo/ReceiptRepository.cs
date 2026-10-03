@@ -57,4 +57,16 @@ public sealed class ReceiptRepository(MongoDbContext context) : IReceiptReposito
             .SortByDescending(x => x.IssuedAt)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<IEnumerable<Receipt>> FindByUserAndDateRangeAsync(ObjectId userId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken)
+    {
+        var filter = Builders<Receipt>.Filter.Eq(x => x.UserId, userId)
+            & Builders<Receipt>.Filter.Gte(x => x.IssuedAt, startDate)
+            & Builders<Receipt>.Filter.Lte(x => x.IssuedAt, endDate);
+
+        return await context.Receipts.Find(filter)
+            .SortByDescending(x => x.IssuedAt)
+            .ToListAsync(cancellationToken);
+    }
+
 }

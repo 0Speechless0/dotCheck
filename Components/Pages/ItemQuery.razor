@@ -23,7 +23,7 @@
     <div class="query-tabs">
         <button class="tab @(_activeTab == 0 ? "active" : "")" @onclick="ShowItemTab">項目查詢</button>
         <button class="tab @(_activeTab == 1 ? "active" : "")" @onclick="ShowPaymentTabAsync">繳費單</button>
-                <button class="tab @(_activeTab == 4 ? "active" : "")" @onclick="ShowPayoutTab">撥款單</button>
+        <button class="tab @(_activeTab == 4 ? "active" : "")" @onclick="ShowPayoutTab">撥款單</button>
         <button class="tab @(_activeTab == 2 ? "active" : "")" @onclick="ShowReceiptTabAsync">收據</button>
         <button class="tab @(_activeTab == 3 ? "active" : "")" @onclick="ShowReasonTabAsync">未認結理由</button>
 
@@ -51,7 +51,17 @@
                 </div>
                 <button class="button primary" @onclick="SearchAsync">查詢</button>
             </div>
-
+            @if (_status == "Settled")
+            {
+                <div class="filter-card">
+                    <div>
+                        <label>時間範圍</label>
+                        <input type="date" class="input mt-2" @bind="_filterStartDate" />
+                        <input type="date" class="input mt-2" @bind="_filterEndDate" />
+                    </div>
+                    <button class="button primary" @onclick="SearchAsync">查詢</button>
+                </div>
+            }
             <div class="summary-grid">
                 <div class="summary-card">
                     <span>項目數量</span>
@@ -94,6 +104,14 @@
     //繳費單
     else if (_activeTab == 1)
     {
+        <div class="filter-card">
+            <div>
+                <label>時間範圍</label>
+                <input type="date" class="input mt-2" @bind="_filterStartDate" />
+                <input type="date" class="input mt-2" @bind="_filterEndDate" />
+            </div>
+            <button class="button primary" @onclick="SearchAsync">查詢</button>
+        </div>
         <section>
             @if (_paymentLoading)
             {
@@ -101,10 +119,11 @@
             }
             else if (_paymentBills.Count == 0)
             {
-                <div class="notice">目前沒有你的應繳繳費單。</div>
+                <div class="notice">前間內沒有繳費單。</div>
             }
             else
             {
+
                 <div class="table-card">
                     <div class="table-scroll">
                         <table class="data-table">
@@ -164,23 +183,30 @@
 
                     <div class="payout-bill-actions">
                         <InputFile OnChange="HandleReceiptImport" accept="text/plain,.txt,application/json,.json" />
-                        <button class="button primary" @onclick="DownloadSelectedReceipts"
-                            disabled="@(_selectedReceiptIds.Count == 0)">下載選取收據</button>
+
                     </div>
                 </div>
 
                 <div class="muted" style="margin-bottom: 1rem;">匯入時會驗證 RSA-PSS-SHA256 數位簽章、使用者、繳費單金額及重複性。</div>
-
+                <div class="filter-card">
+                    <div>
+                        <label>時間範圍</label>
+                        <input type="date" class="input mt-2" @bind="_filterStartDate" />
+                        <input type="date" class="input mt-2" @bind="_filterEndDate" />
+                    </div>
+                    <button class="button primary" @onclick="SearchAsync">查詢</button>
+                </div>
                 @if (_receiptLoading)
                 {
                     <Loading />
                 }
                 else if (_receipts.Count == 0)
                 {
-                    <div class="notice">目前沒有已提領的收據。</div>
+                    <div class="notice">前間內沒有收據。</div>
                 }
                 else
                 {
+
                     <div class="table-card">
                         <div class="table-scroll">
                             <table class="data-table">
@@ -213,14 +239,19 @@
                                 </table>
                             </div>
                         </div>
+                        <div class="d-flex justify-content-center mt-4">
+                            <button class="button primary m-2 " @onclick="DownloadSelectedReceipts"
+                                    disabled="@(_selectedReceiptIds.Count == 0)">下載選取收據</button>
+                        </div>
+
                     }
                 </section>
             }
     else if (_activeTab == 4)
-    {
-        <PayoutBillTab />
-    }
-    else
+            {
+                <PayoutBillTab />
+            }
+            else
             {
                 <section>
                     @if (_reasonLoading)
@@ -252,13 +283,16 @@
                                             <tr>
                                                 <td data-label="項目">@dto.ItemName</td>
                                                 <td data-label="金額" class="money">@dto.Amount.ToString("C0")</td>
-                                                <td data-label="理由">@dto.Reason</td>
+
                                                 <td data-label="更新時間">@dto.UpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                                                 <td data-label="操作">
                                                     @if (item is not null && item.Status != ItemStatus.Settled)
                                                     {
                                                         <button class="button small" @onclick="() => EditItemAsync(item)">修改項目</button>
                                                     }
+                                                </td>
+                                                <td data-label="理由">
+                                                    <textarea class="input form-control" disabled> @dto.Reason </textarea>
                                                 </td>
                                             </tr>
                                         }
@@ -295,7 +329,7 @@
                         <div class="modal-footer">
                             <button class="button" @onclick="CloseEdit">取消</button>
                             <button class="button primary" @onclick="SaveEditAsync" disabled="@_editing">@(_editing ? "儲存中…" :
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         "儲存")</button>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         "儲存")</button>
                             </div>
                         </div>
                     </div>
@@ -328,6 +362,9 @@
     private bool _showPaymentBillDetail;
     private PaymentBillDto _selectedPaymentBill;
 
+    private DateTime _filterStartDate = DateTime.Today.AddMonths(-1);
+    private DateTime _filterEndDate = DateTime.Today;
+
     protected override async Task OnInitializedAsync()
     {
         var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
@@ -350,7 +387,7 @@
         _paymentLoading = true;
         try
         {
-            _paymentBills = (await PaymentService.GetUserPaymentBillsAsync(_userId)).ToList();
+            _paymentBills = (await PaymentService.GetUserPaymentBillsAsync(_userId, _filterStartDate, _filterEndDate)).ToList();
         }
         catch (Exception ex)
         {
@@ -399,8 +436,24 @@
 
     private async Task SearchAsync()
     {
-        await LoadSummaryAsync();
-        _queryVersion++;
+        if (_activeTab == 1)
+        {
+            await ShowPaymentTabAsync();
+        }
+        else if (_activeTab == 2)
+        {
+            await ShowReceiptTabAsync();
+        }
+        else if (_activeTab == 3)
+        {
+            await ShowReasonTabAsync();
+        }
+        else if (_activeTab == 0)
+        {
+            await LoadSummaryAsync();
+            _queryVersion++;
+        }
+
     }
 
     private async Task LoadSummaryAsync()
@@ -419,7 +472,7 @@
         _receiptLoading = true;
         try
         {
-            _receipts = (await ReceiptService.GetUserReceiptsAsync(_userId)).ToList();
+            _receipts = (await ReceiptService.GetUserReceiptsAsync(_userId, _filterStartDate, _filterEndDate)).ToList();
             _selectedReceiptIds.Clear();
         }
         catch (Exception ex)
