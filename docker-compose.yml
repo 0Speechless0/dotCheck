@@ -30,7 +30,7 @@ services:
       - dotcheck-network
 
   mongodb:
-    image: mongo:latest
+    image: mongo:4.4
 
     container_name: dotcheck-mongodb
 
