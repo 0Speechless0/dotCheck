@@ -28,16 +28,16 @@ jobs:
             git reset --hard origin/main
 
             echo "=== Build new image ==="
-            docker compose build --no-cache dotcheck
+            docker-compose build --no-cache dotcheck
 
             echo "=== Stop old containers ==="
-            docker compose down
+            docker-compose down
 
             echo "=== Start containers ==="
-            docker compose up -d
+            docker-compose up -d
 
             echo "=== Remove unused images ==="
             docker image prune -f
 
             echo "=== Deployment completed ==="
-            docker compose ps
+            docker-compose ps
