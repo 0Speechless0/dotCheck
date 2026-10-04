@@ -1,0 +1,61 @@
+services:
+
+  dotcheck:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: dotcheck
+
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:8080:8080"
+
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+
+      MongoDB__ConnectionString: mongodb://mongodb:27017
+
+      MongoDB__DatabaseName: dotCheck
+
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+    volumes:
+      - dotcheck-data:/app/data
+
+    networks:
+      - dotcheck-network
+
+  mongodb:
+    image: mongo:latest
+
+    container_name: dotcheck-mongodb
+
+    restart: unless-stopped
+
+    environment:
+      MONGO_INITDB_DATABASE: dotCheck
+
+    volumes:
+      - mongodb-data:/data/db
+
+    networks:
+      - dotcheck-network
+
+    healthcheck:
+      test: [ "CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  mongodb-data:
+  dotcheck-data:
+
+networks:
+  dotcheck-network:
+    driver: bridge
