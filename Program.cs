@@ -19,8 +19,10 @@ using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddAntiforgery();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
 
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddHttpContextAccessor();
@@ -63,12 +65,6 @@ builder.Services.AddScoped<IReasonRepository, ReasonRepository>();
 builder.Services.AddScoped<IPaymentBillRepository, PaymentBillRepository>();
 builder.Services.AddScoped<IReceiptRepository, ReceiptRepository>();
 builder.Services.AddScoped<IPayoutBillRepository, PayoutBillRepository>();
-builder.Services.Configure<ForwardedHeadersOptions>(options =>
-{
-    options.ForwardedHeaders =
-        ForwardedHeaders.XForwardedFor |
-        ForwardedHeaders.XForwardedProto;
-});
 var app = builder.Build();
 
 await app.Services.GetRequiredService<MongoDbContext>().InitializeAsync();
@@ -83,13 +79,18 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/error");
     app.UseHsts();
-    app.UseForwardedHeaders();
+    app.UseForwardedHeaders(new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+    });
+
 }
 
 app.UseStaticFiles();
 app.UseAntiforgery();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseHttpsRedirection();
 
 app.MapPost("/auth/login", async (HttpContext httpContext, AuthService authService, IAntiforgery antiforgery) =>
 {
