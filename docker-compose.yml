@@ -36,7 +36,7 @@ services:
     container_name: dotcheck-mongodb
 
     ports:
-      - "127.0.0.1:27017:27017"
+      - "27017:27017"
 
     restart: unless-stopped
 
