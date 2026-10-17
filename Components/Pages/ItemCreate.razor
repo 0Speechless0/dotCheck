@@ -82,7 +82,7 @@
 
             <div class="form-actions">
                 <button class="button primary" type="submit" disabled="@_submitting">@(_submitting ? "提交中…" :
-                                                                                                                                                                                                                    "提交項目")</button>
+                                                                                                                                                                                                                                                            "提交項目")</button>
                     <button class="button" type="button" @onclick="ResetForm" disabled="@_submitting">清除</button>
                 </div>
             </EditForm>
@@ -119,7 +119,7 @@
     private void HandleFileSelected(InputFileChangeEventArgs e)
     {
         _selectedFile = e.File;
-        _error = _selectedFile.Size > 2 * 1024 * 1024 ? "檔案超過 2MB。" : null;
+        _error = _selectedFile.Size > 20 * 1024 * 1024 ? "檔案超過 20MB。" : null;
     }
 
     private async Task CreateItemAsync()

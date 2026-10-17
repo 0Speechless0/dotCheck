@@ -306,7 +306,7 @@
         try
         {
             var (bill, payouts, settledCount) = await FinanceService.SettleMoney(_confirmedItems);
-            _message = $"繳費單 {bill.Id} 已建立， \n 撥款單建立{payouts.Count}張，涵蓋 {bill.ItemIds.Count} 個項目、總金額 {bill.TotalAmount:N2}，已更新 {settledCount}/{bill.ItemIds.Count} 筆項目為已結清。";
+            _message = $"繳費單 {bill.Id} 已建立， 涵蓋 {bill.ItemIds.Count} 個項目、總金額 {bill.TotalAmount:N2}，已更新 {settledCount}/{bill.ItemIds.Count} 筆項目為已結清。";
             await LoadConfirmedAsync();
         }
         catch (Exception ex)

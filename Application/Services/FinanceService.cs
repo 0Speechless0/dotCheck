@@ -41,19 +41,22 @@ public class FinanceService(
                 UserId = userId,
                 PayableAmount =
                 (
-                    totalAmount - ownerAmounts.GetValueOrDefault(userId)
-                    - ownerAmounts.GetValueOrDefault(userId) * (decimal)(allUserIds.Count - 1)
+                    totalAmount
+                // - ownerAmounts.GetValueOrDefault(userId)
+                // - ownerAmounts.GetValueOrDefault(userId) * (decimal)(allUserIds.Count - 1)
                 ) / (decimal)allUserIds.Count
             })
             .Where(x => x.PayableAmount != 0)
             .GroupBy(x => x.PayableAmount > 0 ? "Pay" : "Receive")
             .ToDictionary(g => g.Key, g => g.ToList());
-        if(!userGroups.ContainsKey("Pay") || !userGroups.ContainsKey("Receive"))
+        if (!userGroups.ContainsKey("Pay")
+        // || !userGroups.ContainsKey("Receive")
+        )
         {
-            throw new Exception("目前不需要生成撥款單和繳費單");
+            throw new Exception("目前不需要生成繳費單");
         }
         PaymentBill bill = await paymentService.CreatePaymentBillAsync(confirmedItems.ToList(), userGroups["Pay"], totalAmount, cancellationToken);
-        List<PayoutBill> payoutBills = await payoutBillService.CreatePayoutBillAsync(bill, confirmedItems.ToList(), userGroups["Receive"], totalAmount, cancellationToken);
-        return (bill, payoutBills, confirmedItems.Count);
+        // List<PayoutBill> payoutBills = await payoutBillService.CreatePayoutBillAsync(bill, confirmedItems.ToList(), userGroups["Receive"], totalAmount, cancellationToken);
+        return (bill, null, confirmedItems.Count);
     }
 }
